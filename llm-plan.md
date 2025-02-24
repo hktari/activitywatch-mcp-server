@@ -3,6 +3,7 @@
 ## Project Overview
 Create an MCP server that allows Claude to interact with ActivityWatch, a privacy-first time tracking application. The server will enable Claude to query time tracking data and provide insights about time usage.
 
+
 ## Development Principles
 - **Simplicity First**: Keep implementations simple and maintainable
 - **Error Handling**: Implement comprehensive error handling
@@ -24,64 +25,7 @@ Create an MCP server that allows Claude to interact with ActivityWatch, a privac
 - Verified Claude Desktop integration
 - Added metadata support
 
-## Next Development Phases
 
-### Phase 2.2: Query Tool Implementation (NEXT)
-Goal: Create a robust query tool for ActivityWatch data analysis
-
-1. **Basic Query Features**
-   - Implement ActivityWatch query language support
-   - Add time range parameters
-   - Support basic query operations
-   - Test: Basic query execution
-
-2. **Advanced Query Features**
-   - Support complex query operations
-   - Add query parameter validation
-   - Implement error handling
-   - Test: Complex query validation
-
-3. **Query Result Formatting**
-   - Format results for readability
-   - Add result summarization
-   - Support different output formats
-   - Test: Result formatting
-
-### Phase 2.3: Event Fetching Tool
-Goal: Implement direct event access from buckets
-
-1. **Event Retrieval**
-   - Get events from specific buckets
-   - Add time range filtering
-   - Support event type filtering
-   - Test: Event fetching
-
-2. **Event Processing**
-   - Implement event data formatting
-   - Add event metadata access
-   - Support batch operations
-   - Test: Event processing
-
-### Phase 3: Analysis and Insights
-Goal: Add tools for meaningful time tracking analysis
-
-1. **Time Summary Tool**
-   - Calculate application usage time
-   - Generate daily/weekly summaries
-   - Support category-based grouping
-   - Test: Generate accurate time summaries
-
-2. **Activity Analysis Tool**
-   - Track productivity patterns
-   - Generate activity heatmaps
-   - Calculate focus metrics
-   - Test: Analysis accuracy
-
-3. **AFK Integration**
-   - Track active/inactive periods
-   - Calculate true productive time
-   - Generate AFK statistics
-   - Test: AFK detection accuracy
 
 ## Implementation Details
 
@@ -142,13 +86,21 @@ const ENDPOINTS = {
 - Data sanitization
 - Rate limiting
 
-## Next Immediate Steps
-1. Implement Query Tool
-   - Basic query execution
-   - Query parameter validation
-   - Result formatting
-   - Error handling
-   - Test suite
-2. Test with Claude Desktop
-3. Document query capabilities
-4. Move on to Event Fetching Tool
+
+## Issues
+- npm run build is failing 
+```
+npm run build
+
+> activitywatch-mcp-server@1.0.0 build
+> tsc && npm run copy-files
+
+src/index.ts:20:3 - error TS2353: Object literal may only specify known properties, and 'method' does not exist in type 'ZodObject<{ method: ZodLiteral<string>; }, UnknownKeysParam, ZodTypeAny, { method: string; }, { method: string; }>'.
+
+20   method: bucketListTool.name,
+     ~~~~~~
+
+
+Found 1 error in src/index.ts:20
+
+```

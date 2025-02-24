@@ -17,16 +17,26 @@ interface BucketWithId extends Bucket {
   id: string;
 }
 
-const inputSchema = z.object({
-  type: z.string().optional(),
-  includeData: z.boolean().optional(),
-});
+const inputSchema = {
+  type: "object",
+  properties: {
+    type: {
+      type: "string",
+      description: "Filter buckets by type"
+    },
+    includeData: {
+      type: "boolean",
+      description: "Include bucket data in response"
+    }
+  }
+};
 
 export const bucketListTool = {
   name: "list-buckets",
   description: "List all ActivityWatch buckets with optional type filtering",
   inputSchema: inputSchema,
-  handler: async (args: z.infer<typeof inputSchema>) => {
+  // Properly structure the returned content for MCP
+  handler: async (args: { type?: string; includeData?: boolean }) => {
     try {
       const response = await axios.get(`${AW_API_BASE}/buckets`);
       const buckets: Record<string, Bucket> = response.data;
