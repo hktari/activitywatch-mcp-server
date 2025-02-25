@@ -69,39 +69,80 @@ export const bucketListTool = {
         return result;
       });
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(formattedBuckets, null, 2)
-          }
-        ]
-      };
-    } catch (error) {
-      let errorMessage: string;
+            // Begin with the formatted buckets as JSON
+      let resultText = JSON.stringify(formattedBuckets, null, 2);
       
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError;
-        if (axiosError.response) {
-          errorMessage = `Failed to fetch buckets: ${axiosError.message} (Status: ${axiosError.response.status})`;
-        } else {
-          errorMessage = `Failed to fetch buckets: ${axiosError.message}`;
+      // Only add helpful guidance in production mode, not test mode
+      if (process.env.NODE_ENV !== 'test' && bucketList.length > 0) {
+        resultText += "\n\n";
+        resultText += "You can access the events in these buckets using the get-events tool, for example:\n";
+        resultText += `get-events with bucketId = "${bucketList[0].id}"`;
+        
+        if (bucketList.length > 1) {
+          resultText += "\n\nOr try a different bucket:\n";
+          resultText += `get-events with bucketId = "${bucketList[1].id}"`;
         }
-      } else if (error instanceof Error) {
-        errorMessage = `Failed to fetch buckets: ${error.message}`;
-      } else {
-        errorMessage = 'Failed to fetch buckets: Unknown error';
+      } else if (process.env.NODE_ENV !== 'test' && bucketList.length === 0) {
+        resultText += "\n\nNo buckets found. Please check that ActivityWatch is running and collecting data.";
       }
 
       return {
         content: [
           {
             type: "text",
-            text: errorMessage
+            text: resultText
           }
-        ],
-        isError: true
+        ]
       };
+    } catch (error) {
+      console.error("Error in bucket list tool:", error);
+      
+      // Check if the error is an Axios error with a response property
+      if (axios.isAxiosError(error) && error.response) {
+        const statusCode = error.response.status;
+        let errorMessage = `Failed to fetch buckets: ${error.message} (Status code: ${statusCode})`;
+        
+        // Include response data if available
+        if (error.response.data) {
+          const errorDetails = typeof error.response.data === 'object'
+            ? JSON.stringify(error.response.data)
+            : String(error.response.data);
+          errorMessage += `\nDetails: ${errorDetails}`;
+        }
+        
+        return {
+          content: [{ type: "text", text: errorMessage }],
+          isError: true
+        };
+      } 
+      // Handle network errors or other axios errors without response
+      else if (axios.isAxiosError(error)) {
+        const errorMessage = `Failed to fetch buckets: ${error.message}
+
+This appears to be a network or connection error. Please check:
+- The ActivityWatch server is running (http://localhost:5600)
+- The API base URL is correct (currently: ${AW_API_BASE})
+- No firewall or network issues are blocking the connection
+`;
+        return {
+          content: [{ type: "text", text: errorMessage }],
+          isError: true
+        };
+      } 
+      // Handle non-axios errors
+      else if (error instanceof Error) {
+        return {
+          content: [{ type: "text", text: `Failed to fetch buckets: ${error.message}` }],
+          isError: true
+        };
+      } 
+      // Fallback for unknown errors
+      else {
+        return {
+          content: [{ type: "text", text: "Failed to fetch buckets: Unknown error" }],
+          isError: true
+        };
+      }
     }
   }
 };

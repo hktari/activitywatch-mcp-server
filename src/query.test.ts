@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios, { AxiosError } from 'axios';
 import { queryTool } from './query.js';
 
+// Mock axios
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -51,17 +52,28 @@ describe('queryTool', () => {
   });
 
   it('should handle query errors with response data', async () => {
-    const mockError = new Error('Bad request') as AxiosError;
-    mockError.isAxiosError = true;
-    mockError.response = {
-      status: 400,
-      statusText: 'Bad Request',
-      headers: {},
-      config: {} as any,
-      data: { error: 'Query syntax error' }
+    // Mock axios.isAxiosError to return true for our mock error
+    const originalIsAxiosError = axios.isAxiosError;
+    
+    // Create a mock error with the expected structure
+    const mockAxiosError = {
+      isAxiosError: true,
+      message: 'Bad request',
+      response: {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {},
+        config: {} as any,
+        data: { error: 'Query syntax error' }
+      }
     };
-
-    mockedAxios.post.mockRejectedValueOnce(mockError);
+    
+    // Override axios.isAxiosError for this test
+    // This approach avoids TypeScript errors with direct mocking
+    jest.spyOn(axios, 'isAxiosError').mockImplementation(() => true);
+    
+    // Reject with our custom error object
+    mockedAxios.post.mockRejectedValueOnce(mockAxiosError);
 
     const result = await queryTool.handler({
       timeperiods: ['2024-02-01', '2024-02-07'],
@@ -72,15 +84,23 @@ describe('queryTool', () => {
     expect(result.content[0].text).toContain('Query failed');
     expect(result.content[0].text).toContain('400');
     expect(result.content[0].text).toContain('Query syntax error');
+    
+    // Restore the original function after the test
+    jest.spyOn(axios, 'isAxiosError').mockRestore();
   });
 
   it('should handle network errors', async () => {
-    const mockError = new Error('Network Error') as AxiosError;
-    mockError.isAxiosError = true;
-    mockError.message = 'Network Error';
-    // No response property to simulate network error
-
-    mockedAxios.post.mockRejectedValueOnce(mockError);
+    // Mock network error
+    const networkError = {
+      isAxiosError: true,
+      message: 'Network Error',
+      // No response property to simulate network error
+    };
+    
+    // Override axios.isAxiosError for this test
+    jest.spyOn(axios, 'isAxiosError').mockImplementation(() => true);
+    
+    mockedAxios.post.mockRejectedValueOnce(networkError);
 
     const result = await queryTool.handler({
       timeperiods: ['2024-02-01', '2024-02-07'],
@@ -89,5 +109,8 @@ describe('queryTool', () => {
     
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe('Query failed: Network Error');
+    
+    // Restore the original function
+    jest.spyOn(axios, 'isAxiosError').mockRestore();
   });
 });

@@ -3,6 +3,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { bucketListTool } from "./bucketList.js";
 import { queryTool } from "./query.js";
+import { rawEventsTool } from "./rawEvents.js";
 
 // Create server instance
 const server = new Server({
@@ -27,6 +28,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: queryTool.name,
         description: queryTool.description,
         inputSchema: queryTool.inputSchema
+      },
+      {
+        name: rawEventsTool.name,
+        description: rawEventsTool.description,
+        inputSchema: rawEventsTool.inputSchema
       }
     ]
   };
@@ -61,12 +67,38 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       query: args.query as string[],
       name: typeof args.name === 'string' ? args.name : undefined
     });
+  } else if (request.params.name === rawEventsTool.name) {
+    // For the raw events tool
+    if (!args.bucketId || typeof args.bucketId !== 'string') {
+      return {
+        content: [{
+          type: "text",
+          text: "Error: Missing required parameter 'bucketId' (must be a string)"
+        }],
+        isError: true
+      };
+    }
+    
+    return await rawEventsTool.handler({
+      bucketId: args.bucketId,
+      limit: typeof args.limit === 'number' ? args.limit : undefined,
+      start: typeof args.start === 'string' ? args.start : undefined,
+      end: typeof args.end === 'string' ? args.end : undefined
+    });
   }
   
   throw new Error(`Tool not found: ${request.params.name}`);
 });
 
 async function main() {
+  // Output application banner
+  console.error("ActivityWatch MCP Server");
+  console.error("=======================");
+  console.error("Version: 1.0.0");
+  console.error("API Endpoint: http://localhost:5600/api/0");
+  console.error("Tools: list-buckets, run-query, get-events");
+  console.error("=======================");
+  
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("ActivityWatch MCP Server running on stdio");
