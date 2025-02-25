@@ -47,7 +47,12 @@ describe('queryTool', () => {
     // Verify that the URL included the name parameter
     expect(mockedAxios.post).toHaveBeenCalledWith(
       expect.stringContaining('?name=my-test-query'),
-      expect.any(Object)
+      {
+        query: [
+          ['RETURN = "test";']
+        ],
+        timeperiods: ['2024-02-01/2024-02-07']
+      }
     );
   });
 

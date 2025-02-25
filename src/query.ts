@@ -37,10 +37,23 @@ export const queryTool = {
   inputSchema: inputSchema,
   handler: async (args: { timeperiods: string[]; query: string[]; name?: string }) => {
     try {
-      // Construct the query request
+      // Construct the query request with correct ActivityWatch API format
+      // Note: ActivityWatch expects timeperiods in format "start/end" as a single string inside an array
+      // And query as an array of arrays where each inner array is a complete query
       const queryData = {
-        query: args.query,
-        timeperiods: args.timeperiods
+        // Query needs to be a single string inside an array
+        query: [
+          args.query  // Pass the array directly as is
+        ],
+        
+        // Timeperiods need to be in format "start/end"
+        timeperiods: [
+          // If we have exactly two dates, combine them with a slash
+          args.timeperiods.length === 2 ? 
+            `${args.timeperiods[0]}/${args.timeperiods[1]}` : 
+            // Otherwise use the first timeperiod as is (may already be formatted correctly)
+            args.timeperiods[0]
+        ]
       };
 
       // Add an optional 'name' parameter to the URL if provided
@@ -69,6 +82,19 @@ export const queryTool = {
       if (axios.isAxiosError(error) && error.response) {
         const statusCode = error.response.status;
         let errorMessage = `Query failed: ${error.message} (Status code: ${statusCode})`;
+        
+        // Log the full error details for debugging
+        console.error("Full error details:", JSON.stringify({
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers,
+          config: {
+            url: error.response.config.url,
+            method: error.response.config.method,
+            data: JSON.parse(error.response.config.data || '{}')
+          }
+        }, null, 2));
         
         // Include response data if available
         if (error.response.data) {
