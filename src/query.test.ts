@@ -28,8 +28,8 @@ describe('queryTool', () => {
       query: ['afk_events = query_bucket("aw-watcher-afk_hostname");', 'RETURN = afk_events;']
     });
     
-    expect(result.content[0].type).toBe('text');
-    const parsedContent = JSON.parse(result.content[0].text);
+    expect(result!.content[0].type).toBe('text');
+    const parsedContent = JSON.parse(result!.content[0].text);
     expect(parsedContent).toBeDefined();
     expect(parsedContent["2024-02-01_2024-02-07"]).toHaveLength(2);
   });
@@ -85,10 +85,10 @@ describe('queryTool', () => {
       query: ['invalid query syntax']
     });
     
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Query failed');
-    expect(result.content[0].text).toContain('400');
-    expect(result.content[0].text).toContain('Query syntax error');
+    expect(result!.isError).toBe(true);
+    expect(result!.content[0].text).toContain('Query failed');
+    expect(result!.content[0].text).toContain('400');
+    expect(result!.content[0].text).toContain('Query syntax error');
     
     // Restore the original function after the test
     jest.spyOn(axios, 'isAxiosError').mockRestore();
@@ -112,8 +112,8 @@ describe('queryTool', () => {
       query: ['RETURN = "test";']
     });
     
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toBe('Query failed: Network Error');
+    expect(result!.isError).toBe(true);
+    expect(result!.content[0].text).toBe('Query failed: Network Error');
     
     // Restore the original function
     jest.spyOn(axios, 'isAxiosError').mockRestore();

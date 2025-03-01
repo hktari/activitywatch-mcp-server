@@ -4,6 +4,28 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { bucketListTool } from "./bucketList.js";
 import { queryTool } from "./query.js";
 import { rawEventsTool } from "./rawEvents.js";
+import { queryExamplesTool } from "./queryExamples.js";
+import { directQueryTool } from "./directQuery.js";
+
+// Helper function to handle type-safe tool responses
+const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
+  try {
+    const result = await handler(...args);
+    if (!result) {
+      return {
+        content: [{ type: "text", text: "Error: Tool handler returned no result" }],
+        isError: true
+      };
+    }
+    return result;
+  } catch (error) {
+    console.error("Tool execution error:", error);
+    return {
+      content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true
+    };
+  }
+};
 
 // Create server instance
 const server = new Server({
@@ -25,6 +47,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: bucketListTool.inputSchema
       },
       {
+        name: queryExamplesTool.name,
+        description: queryExamplesTool.description,
+        inputSchema: queryExamplesTool.inputSchema
+      },
+      {
         name: queryTool.name,
         description: queryTool.description,
         inputSchema: queryTool.inputSchema
@@ -33,53 +60,224 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: rawEventsTool.name,
         description: rawEventsTool.description,
         inputSchema: rawEventsTool.inputSchema
+      },
+      {
+        name: directQueryTool.name,
+        description: directQueryTool.description,
+        inputSchema: directQueryTool.inputSchema
       }
     ]
   };
 });
 
 // Register tool call handler
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   // Default empty object if arguments is undefined
-  const args = request.params.arguments || {};
+  let args = request.params.arguments || {};
   
   if (request.params.name === bucketListTool.name) {
     // Cast to the expected type for the bucket list tool
-    return await bucketListTool.handler({
+    return makeSafeToolResponse(bucketListTool.handler)({
       type: typeof args.type === 'string' ? args.type : undefined,
       includeData: Boolean(args.includeData)
     });
+  } else if (request.params.name === directQueryTool.name) {
+    // For the direct query tool (simplified version with minimal transformations)
+    const directArgs = request.params.arguments || {};
+    
+    // Validate required fields
+    if (!directArgs.timeperiods || !directArgs.queryText) {
+      return makeSafeToolResponse(() => ({
+        content: [{
+          type: "text",
+          text: "Error: Missing required parameters. The direct-query tool requires 'timeperiods' and 'queryText'."
+        }],
+        isError: true
+      }))();
+    }
+    
+    return makeSafeToolResponse(directQueryTool.handler)({
+      timeperiods: Array.isArray(directArgs.timeperiods) ? directArgs.timeperiods : [directArgs.timeperiods],
+      queryText: String(directArgs.queryText),
+      name: typeof directArgs.name === 'string' ? directArgs.name : undefined
+    });
+  } else if (request.params.name === queryExamplesTool.name) {
+    return makeSafeToolResponse(queryExamplesTool.handler)();
   } else if (request.params.name === queryTool.name) {
-    // For the query tool, we need to ensure we have the required properties
-    if (!args.timeperiods || !Array.isArray(args.timeperiods) || 
-        !args.query || !Array.isArray(args.query)) {
+    // For the query tool, we need to validate and normalize the args
+    
+    // First, log the raw arguments to debug format issues
+    console.error(`\nRAW ARGS FROM MCP CLIENT:`);
+    console.error(JSON.stringify(request.params.arguments, null, 2));
+    console.error(`\nTYPE: ${typeof request.params.arguments}`);
+    console.error(`\nARRAY? ${Array.isArray(request.params.arguments)}`);
+    
+    // Make a mutable copy of the arguments
+    let queryArgs = {...(request.params.arguments || {})};
+    
+    // Try to see if this is JSON string that needs parsing
+    if (typeof request.params.arguments === 'string') {
+      try {
+        const parsedArgs = JSON.parse(request.params.arguments);
+        console.error(`Parsed string arguments into object:`);
+        console.error(JSON.stringify(parsedArgs, null, 2));
+        queryArgs = parsedArgs;
+      } catch (e) {
+        console.error(`Failed to parse arguments string: ${e}`);
+      }
+    }
+    
+    // More diagnostic info
+    if (queryArgs.query) {
+      console.error(`Query type: ${typeof queryArgs.query}`);
+      console.error(`Query array? ${Array.isArray(queryArgs.query)}`);
+      console.error(`Query value: ${JSON.stringify(queryArgs.query, null, 2)}`);
+      
+      if (Array.isArray(queryArgs.query) && queryArgs.query.length > 0) {
+        console.error(`First item type: ${typeof queryArgs.query[0]}`);
+        console.error(`First item array? ${Array.isArray(queryArgs.query[0])}`);
+      }
+    }
+    
+    // Validate timeperiods
+    if (!queryArgs.timeperiods) {
+      return makeSafeToolResponse(() => ({
+        content: [{
+          type: "text",
+          text: "Error: Missing required parameter 'timeperiods' (must be an array of date ranges)"
+        }],
+        isError: true
+      }))();
+    }
+    
+    if (!Array.isArray(queryArgs.timeperiods)) {
+      // Try to normalize a single string to an array
+      if (typeof queryArgs.timeperiods === 'string') {
+        queryArgs.timeperiods = [queryArgs.timeperiods];
+        console.error(`Normalized timeperiods from string to array: ${JSON.stringify(queryArgs.timeperiods)}`);
+      } else {
+        return makeSafeToolResponse(() => ({
+          content: [{
+            type: "text",
+            text: "Error: 'timeperiods' must be an array of date ranges in format: ['2024-10-28/2024-10-29']"
+          }],
+          isError: true
+        }))();
+      }
+    }
+    
+    // Validate query
+    if (!queryArgs.query) {
+      return makeSafeToolResponse(() => ({
+        content: [{
+          type: "text",
+          text: "Error: Missing required parameter 'query'"
+        }],
+        isError: true
+      }))();
+    }
+    
+    // Handle different query formats
+    if (!Array.isArray(queryArgs.query)) {
+      // If it's a string, wrap it in an array
+      if (typeof queryArgs.query === 'string') {
+        queryArgs.query = [queryArgs.query];
+        console.error(`Normalized query from string to array: ${JSON.stringify(queryArgs.query)}`);
+      } else {
+        return makeSafeToolResponse(() => formatValidationError())();
+      }
+    }
+    
+    // Check for double-wrapped array format (an issue with some MCP clients)
+    if (Array.isArray(queryArgs.query) && queryArgs.query.length === 1 && Array.isArray(queryArgs.query[0])) {
+      // Extract the inner array
+      const innerArray = queryArgs.query[0];
+      console.error(`Detected double-wrapped query array from MCP client. Unwrapping...`);
+      console.error(`Original: ${JSON.stringify(queryArgs.query)}`);
+      
+      if (Array.isArray(innerArray) && innerArray.length >= 1) {
+        // If the inner array is itself an array, take its first element
+        if (Array.isArray(innerArray[0])) {
+          console.error(`Triple-nested array detected! Unwrapping multiple levels...`);
+          queryArgs.query = innerArray[0] as unknown as string[];
+        } else {
+          queryArgs.query = innerArray as unknown as string[];
+        }
+        console.error(`Unwrapped: ${JSON.stringify(queryArgs.query)}`);
+      }
+    }
+    
+    // Special case: Check if we received an array of query lines that need to be combined
+    if (Array.isArray(queryArgs.query) && queryArgs.query.length > 1) {
+      // Check if they look like separate query statements
+      const areQueryStatements = queryArgs.query.some(q => 
+        typeof q === 'string' && (q.includes('=') || q.trim().endsWith(';'))
+      );
+      
+      if (areQueryStatements) {
+        // Join them into a single query string
+        const combinedQuery = queryArgs.query.join(' ');
+        queryArgs.query = [combinedQuery];
+        console.error(`Combined multiple query statements into a single string: ${combinedQuery}`);
+      }
+    }
+    
+    // Log the processed query
+    console.error(`Processed query for execution: ${JSON.stringify({timeperiods: queryArgs.timeperiods, query: queryArgs.query})}`);
+    
+    return makeSafeToolResponse(queryTool.handler)({
+      timeperiods: queryArgs.timeperiods as string[],
+      query: queryArgs.query as string[],
+      name: typeof queryArgs.name === 'string' ? queryArgs.name : undefined
+    });
+    
+    // Helper function to return a nicely formatted validation error
+    function formatValidationError() {
       return {
         content: [{
           type: "text",
-          text: "Error: Missing required parameters (timeperiods and query must be arrays)"
+          text: `Error: Invalid query format.
+
+The correct format for the 'run-query' tool is:
+
+{
+  "timeperiods": ["2024-10-28/2024-10-29"],
+  "query": ["events = query_bucket('bucket-id'); another_statement; RETURN = result;"]
+}
+
+NOTE THE FORMAT:
+1. 'timeperiods' is an array with date ranges formatted as start/end with a slash
+2. 'query' is an array with a SINGLE STRING containing all statements
+3. All query statements must be in the same string, separated by semicolons
+
+COMMON ERRORS:
+- Splitting query statements into separate array items (WRONG)
+- Not using semicolons between statements
+- Not wrapping query in an array
+- Double-wrapping the query in nested arrays (some MCP clients may do this)
+
+DEBUGGING TIP:
+If you're working with an MCP client that consistently produces errors, try examining the exact format 
+of the query parameter it sends. The server tries to automatically detect and handle various formats, 
+but may need additional configuration.
+`
         }],
         isError: true
       };
     }
-    
-    return await queryTool.handler({
-      timeperiods: args.timeperiods as string[],
-      query: args.query as string[],
-      name: typeof args.name === 'string' ? args.name : undefined
-    });
   } else if (request.params.name === rawEventsTool.name) {
     // For the raw events tool
     if (!args.bucketId || typeof args.bucketId !== 'string') {
-      return {
+      return makeSafeToolResponse(() => ({
         content: [{
           type: "text",
           text: "Error: Missing required parameter 'bucketId' (must be a string)"
         }],
         isError: true
-      };
+      }))();
     }
     
-    return await rawEventsTool.handler({
+    return makeSafeToolResponse(rawEventsTool.handler)({
       bucketId: args.bucketId,
       limit: typeof args.limit === 'number' ? args.limit : undefined,
       start: typeof args.start === 'string' ? args.start : undefined,
@@ -87,7 +285,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     });
   }
   
-  throw new Error(`Tool not found: ${request.params.name}`);
+  // Always return a properly formatted and type-safe response
+  return makeSafeToolResponse(() => ({
+    content: [{
+      type: "text",
+      text: `Error: Tool not found: ${request.params.name}`
+    }],
+    isError: true
+  }))();
 });
 
 async function main() {
@@ -96,8 +301,18 @@ async function main() {
   console.error("=======================");
   console.error("Version: 1.0.0");
   console.error("API Endpoint: http://localhost:5600/api/0");
-  console.error("Tools: list-buckets, run-query, get-events");
+  console.error("Tools: list-buckets, query-examples, run-query, get-events");
   console.error("=======================");
+  console.error("For help with query format, use the 'query-examples' tool first");
+  console.error("'run-query' Example format:");
+  console.error(`{
+  "timeperiods": ["2024-10-28/2024-10-29"],
+  "query": ["events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;"]
+}`);
+  console.error("IMPORTANT: The query array must contain a single string with ALL statements joined with semicolons;");
+  console.error("the statements should NOT be split into separate array elements.");
+  console.error("NOTE: Some MCP clients may wrap the query in an additional array. The server attempts to detect");
+  console.error("and handle this automatically but may produce confusing error messages if detection fails.");
   
   const transport = new StdioServerTransport();
   await server.connect(transport);

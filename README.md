@@ -107,14 +107,23 @@ Parameters:
 Run a query in ActivityWatch's query language (AQL).
 
 Parameters:
-- `timeperiods`: Time period(s) to query (e.g., "2023-10-28/2023-10-29")
-- `query`: Array of query statements in ActivityWatch Query Language
+- `timeperiods`: Time period(s) to query formatted as array of strings. For date ranges, use format: `["2024-10-28/2024-10-29"]`
+- `query`: Array of query statements in ActivityWatch Query Language, where each item is a complete query with statements separated by semicolons
 - `name` (optional): Name for the query (used for caching)
 
-Example query:
-```javascript
-["events = query_bucket('aw-watcher-window_hostname'); RETURN = events;"]
+**IMPORTANT**: Each query string should contain a complete query with multiple statements separated by semicolons.
+
+Example request format:
+```json
+{
+  "timeperiods": ["2024-10-28/2024-10-29"],
+  "query": ["events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;"]
+}
 ```
+
+Note that:
+- `timeperiods` should have pre-formatted date ranges with slashes
+- Each item in the `query` array is a complete query with all statements
 
 ### get-events
 
@@ -170,6 +179,52 @@ If you're encountering query errors:
 2. Make sure the bucket IDs are correct
 3. Verify that the timeperiods contain data
 4. Check ActivityWatch logs for more details
+
+### Claude/MCP Query Formatting Issues
+
+If Claude reports errors when running queries through this MCP server, it's likely due to formatting issues. Make sure your query follows this exact format in your prompts:
+
+```json
+{
+  "timeperiods": ["2024-10-28/2024-10-29"],
+  "query": ["events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;"]
+}
+```
+
+Common issues:
+
+- Time periods not formatted correctly (should be "start/end" in a single string within an array)
+- **Query statements split into separate array elements instead of being combined in one string**
+
+#### The Most Common Formatting Issue
+
+The most frequent error is when Claude splits each query statement into its own array element like this:
+
+```json
+{
+  "query": [
+    "browser_events = query_bucket('aw-watcher-web');",
+    "afk_events = query_bucket('aw-watcher-afk');",
+    "RETURN = events;"
+  ],
+  "timeperiods": ["2024-10-28/2024-10-29"]
+}
+```
+
+This is INCORRECT. Instead, all statements should be in a single string within the array:
+
+```json
+{
+  "timeperiods": ["2024-10-28/2024-10-29"],
+  "query": ["browser_events = query_bucket('aw-watcher-web'); afk_events = query_bucket('aw-watcher-afk'); RETURN = events;"]
+}
+```
+
+#### When Prompting Claude
+
+When prompting Claude, be very explicit about the format and use examples. For instance, say:
+
+"Run a query with timeperiods as `["2024-10-28/2024-10-29"]` and query as `["statement1; statement2; RETURN = result;"]`. Important: Make sure ALL query statements are in a single string within the array, not split into separate array elements."
 
 ## Contributing
 
