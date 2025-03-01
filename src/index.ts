@@ -5,7 +5,6 @@ import { activitywatch_list_buckets_tool } from "./bucketList.js";
 import { activitywatch_run_query_tool } from "./query.js";
 import { activitywatch_get_events_tool } from "./rawEvents.js";
 import { activitywatch_query_examples_tool } from "./queryExamples.js";
-import { activitywatch_direct_query_tool } from "./directQuery.js";
 
 // Helper function to handle type-safe tool responses
 const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
@@ -60,11 +59,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: activitywatch_get_events_tool.name,
         description: activitywatch_get_events_tool.description,
         inputSchema: activitywatch_get_events_tool.inputSchema
-      },
-      {
-        name: activitywatch_direct_query_tool.name,
-        description: activitywatch_direct_query_tool.description,
-        inputSchema: activitywatch_direct_query_tool.inputSchema
       }
     ]
   };
@@ -80,26 +74,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     return makeSafeToolResponse(activitywatch_list_buckets_tool.handler)({
       type: typeof args.type === 'string' ? args.type : undefined,
       includeData: Boolean(args.includeData)
-    });
-  } else if (request.params.name === activitywatch_direct_query_tool.name) {
-    // For the direct query tool (simplified version with minimal transformations)
-    const directArgs = request.params.arguments || {};
-    
-    // Validate required fields
-    if (!directArgs.timeperiods || !directArgs.queryText) {
-      return makeSafeToolResponse(() => ({
-        content: [{
-          type: "text",
-          text: "Error: Missing required parameters. The direct-query tool requires 'timeperiods' and 'queryText'."
-        }],
-        isError: true
-      }))();
-    }
-    
-    return makeSafeToolResponse(activitywatch_direct_query_tool.handler)({
-      timeperiods: Array.isArray(directArgs.timeperiods) ? directArgs.timeperiods : [directArgs.timeperiods],
-      queryText: String(directArgs.queryText),
-      name: typeof directArgs.name === 'string' ? directArgs.name : undefined
     });
   } else if (request.params.name === activitywatch_query_examples_tool.name) {
     return makeSafeToolResponse(activitywatch_query_examples_tool.handler)();
@@ -301,7 +275,7 @@ async function main() {
   console.error("=======================");
   console.error("Version: 1.0.0");
   console.error("API Endpoint: http://localhost:5600/api/0");
-  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events, activitywatch_direct_query");
+  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events");
   console.error("=======================");
   console.error("For help with query format, use the 'activitywatch_query_examples' tool first");
   console.error("'activitywatch_run_query' Example format:");
