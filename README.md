@@ -7,6 +7,7 @@ A Model Context Protocol (MCP) server that connects to [ActivityWatch](https://a
 - **List Buckets**: View all available ActivityWatch buckets
 - **Run Queries**: Execute powerful AQL (ActivityWatch Query Language) queries
 - **Get Raw Events**: Retrieve events directly from any bucket
+- **Get Settings**: Access ActivityWatch configuration settings
 
 ## Installation
 
@@ -91,6 +92,7 @@ Here are some example queries you can try in Claude:
 - **Get application usage summary**: "Can you show me which applications I've used the most today?"
 - **View browsing history**: "What websites have I spent the most time on today?"
 - **Check productivity**: "How much time have I spent in productivity apps today?"
+- **View settings**: "What are my ActivityWatch settings?" or "Can you check a specific setting in ActivityWatch?"
 
 ## Available Tools
 
@@ -134,6 +136,13 @@ Parameters:
 - `start` (optional): Start date/time in ISO format
 - `end` (optional): End date/time in ISO format
 - `limit` (optional): Maximum number of events to return
+
+### get-settings
+
+Get ActivityWatch settings from the server.
+
+Parameters:
+- `key` (optional): Get a specific settings key instead of all settings
 
 ## Query Language Examples
 

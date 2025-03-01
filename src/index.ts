@@ -5,6 +5,7 @@ import { activitywatch_list_buckets_tool } from "./bucketList.js";
 import { activitywatch_run_query_tool } from "./query.js";
 import { activitywatch_get_events_tool } from "./rawEvents.js";
 import { activitywatch_query_examples_tool } from "./queryExamples.js";
+import { activitywatch_get_settings_tool } from "./getSettings.js";
 
 // Helper function to handle type-safe tool responses
 const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
@@ -29,7 +30,7 @@ const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
 // Create server instance
 const server = new Server({
   name: "activitywatch-server",
-  version: "1.0.0"
+  version: "1.1.0"
 }, {
   capabilities: {
     tools: {}
@@ -59,6 +60,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: activitywatch_get_events_tool.name,
         description: activitywatch_get_events_tool.description,
         inputSchema: activitywatch_get_events_tool.inputSchema
+      },
+      {
+        name: activitywatch_get_settings_tool.name,
+        description: activitywatch_get_settings_tool.description,
+        inputSchema: activitywatch_get_settings_tool.inputSchema
       }
     ]
   };
@@ -257,6 +263,11 @@ but may need additional configuration.
       start: typeof args.start === 'string' ? args.start : undefined,
       end: typeof args.end === 'string' ? args.end : undefined
     });
+  } else if (request.params.name === activitywatch_get_settings_tool.name) {
+    // For the settings tool
+    return makeSafeToolResponse(activitywatch_get_settings_tool.handler)({
+      key: typeof args.key === 'string' ? args.key : undefined
+    });
   }
   
   // Always return a properly formatted and type-safe response
@@ -273,9 +284,9 @@ async function main() {
   // Output application banner
   console.error("ActivityWatch MCP Server");
   console.error("=======================");
-  console.error("Version: 1.0.0");
+  console.error("Version: 1.1.0");
   console.error("API Endpoint: http://localhost:5600/api/0");
-  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events");
+  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events, activitywatch_get_settings");
   console.error("=======================");
   console.error("For help with query format, use the 'activitywatch_query_examples' tool first");
   console.error("'activitywatch_run_query' Example format:");
