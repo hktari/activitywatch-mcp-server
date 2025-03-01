@@ -2,8 +2,8 @@ import axios from 'axios';
 
 const AW_API_BASE = "http://localhost:5600/api/0";
 
-export const directQueryTool = {
-  name: "direct-query",
+export const activitywatch_direct_query_tool = {
+  name: "activitywatch_direct_query",
   description: "Run a direct query in ActivityWatch - simpler format with no transformations",
   inputSchema: {
     type: "object",

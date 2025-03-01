@@ -3,8 +3,8 @@
  * It has no inputs and simply returns examples in a well-formatted way
  */
 
-export const queryExamplesTool = {
-  name: "query-examples",
+export const activitywatch_query_examples_tool = {
+  name: "activitywatch_query_examples",
   description: "Get examples of properly formatted queries for the ActivityWatch MCP server",
   inputSchema: {
     type: "object",
@@ -128,9 +128,9 @@ Potential issues to watch for:
 
 ## INSTRUCTIONS FOR CLAUDE USERS
 
-When asking Claude to run a query using the 'run-query' tool in the ActivityWatch MCP server, use this format in your request:
+When asking Claude to run a query using the 'activitywatch_run_query' tool in the ActivityWatch MCP server, use this format in your request:
 
-"Please run this query with the 'run-query' tool:
+"Please run this query with the 'activitywatch_run_query' tool:
 - timeperiods: ['2024-10-28/2024-10-29']
 - query: ['all statements go here in one string separated by semicolons; RETURN = results;']"
 
@@ -138,7 +138,7 @@ When asking Claude to run a query using the 'run-query' tool in the ActivityWatc
 
 ⚠️ If you consistently get errors about query format, try modifying your query to include explicit formatting instructions:
 
-"Please run this query with the 'run-query' tool using EXACTLY this format:
+"Please run this query with the 'activitywatch_run_query' tool using EXACTLY this format:
 {
   'timeperiods': ['2024-10-28/2024-10-29'],
   'query': ['all statements go here in one string separated by semicolons; RETURN = results;']

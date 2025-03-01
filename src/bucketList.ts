@@ -31,8 +31,8 @@ const inputSchema = {
   }
 };
 
-export const bucketListTool = {
-  name: "list-buckets",
+export const activitywatch_list_buckets_tool = {
+  name: "activitywatch_list_buckets",
   description: "List all ActivityWatch buckets with optional type filtering",
   inputSchema: inputSchema,
   // Properly structure the returned content for MCP
@@ -75,12 +75,12 @@ export const bucketListTool = {
       // Only add helpful guidance in production mode, not test mode
       if (process.env.NODE_ENV !== 'test' && bucketList.length > 0) {
         resultText += "\n\n";
-        resultText += "You can access the events in these buckets using the get-events tool, for example:\n";
-        resultText += `get-events with bucketId = "${bucketList[0].id}"`;
+        resultText += "You can access the events in these buckets using the activitywatch_get_events tool, for example:\n";
+        resultText += `activitywatch_get_events with bucketId = "${bucketList[0].id}"`;
         
         if (bucketList.length > 1) {
           resultText += "\n\nOr try a different bucket:\n";
-          resultText += `get-events with bucketId = "${bucketList[1].id}"`;
+          resultText += `activitywatch_get_events with bucketId = "${bucketList[1].id}"`;
         }
       } else if (process.env.NODE_ENV !== 'test' && bucketList.length === 0) {
         resultText += "\n\nNo buckets found. Please check that ActivityWatch is running and collecting data.";

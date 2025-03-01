@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios, { AxiosError } from 'axios';
-import { bucketListTool } from './bucketList.js';
+import { activitywatch_list_buckets_tool } from './bucketList.js';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe('bucketList Tool', () => {
+describe('activitywatch_list_buckets Tool', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -23,7 +23,7 @@ describe('bucketList Tool', () => {
 
     mockedAxios.get.mockResolvedValueOnce({ data: mockBuckets });
 
-    const result = await bucketListTool.handler({});
+    const result = await activitywatch_list_buckets_tool.handler({});
     
     expect(result.content[0].type).toBe('text');
     const parsedContent = JSON.parse(result.content[0].text);
@@ -52,7 +52,7 @@ describe('bucketList Tool', () => {
     mockedAxios.get.mockResolvedValueOnce({ data: mockBuckets });
 
     // Test with uppercase filter
-    const result = await bucketListTool.handler({ type: 'WINDOW' });
+    const result = await activitywatch_list_buckets_tool.handler({ type: 'WINDOW' });
     const parsedContent = JSON.parse(result.content[0].text);
     expect(parsedContent).toHaveLength(1);
     expect(parsedContent[0].type).toBe('window');
@@ -70,7 +70,7 @@ describe('bucketList Tool', () => {
 
     mockedAxios.get.mockResolvedValueOnce({ data: mockBuckets });
 
-    const result = await bucketListTool.handler({ type: undefined });
+    const result = await activitywatch_list_buckets_tool.handler({ type: undefined });
     const parsedContent = JSON.parse(result.content[0].text);
     expect(parsedContent).toHaveLength(1); // Should return all buckets
   });
@@ -88,7 +88,7 @@ describe('bucketList Tool', () => {
 
     mockedAxios.get.mockResolvedValueOnce({ data: mockBuckets });
 
-    const result = await bucketListTool.handler({ includeData: true });
+    const result = await activitywatch_list_buckets_tool.handler({ includeData: true });
     const parsedContent = JSON.parse(result.content[0].text);
     expect(parsedContent[0].data).toBeDefined();
     expect(parsedContent[0].data.key).toBe('value');
@@ -107,7 +107,7 @@ describe('bucketList Tool', () => {
 
     mockedAxios.get.mockRejectedValueOnce(mockError);
 
-    const result = await bucketListTool.handler({});
+    const result = await activitywatch_list_buckets_tool.handler({});
     
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Failed to fetch buckets');
@@ -117,7 +117,7 @@ describe('bucketList Tool', () => {
   it('should handle non-Axios errors', async () => {
     mockedAxios.get.mockRejectedValueOnce(new Error('Generic Error'));
 
-    const result = await bucketListTool.handler({});
+    const result = await activitywatch_list_buckets_tool.handler({});
     
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Failed to fetch buckets: Generic Error');
@@ -131,7 +131,7 @@ describe('bucketList Tool', () => {
 
     mockedAxios.get.mockRejectedValueOnce(mockError);
 
-    const result = await bucketListTool.handler({});
+    const result = await activitywatch_list_buckets_tool.handler({});
     
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe('Failed to fetch buckets: Network Error');

@@ -1,11 +1,11 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { bucketListTool } from "./bucketList.js";
-import { queryTool } from "./query.js";
-import { rawEventsTool } from "./rawEvents.js";
-import { queryExamplesTool } from "./queryExamples.js";
-import { directQueryTool } from "./directQuery.js";
+import { activitywatch_list_buckets_tool } from "./bucketList.js";
+import { activitywatch_run_query_tool } from "./query.js";
+import { activitywatch_get_events_tool } from "./rawEvents.js";
+import { activitywatch_query_examples_tool } from "./queryExamples.js";
+import { activitywatch_direct_query_tool } from "./directQuery.js";
 
 // Helper function to handle type-safe tool responses
 const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
@@ -42,29 +42,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: bucketListTool.name,
-        description: bucketListTool.description,
-        inputSchema: bucketListTool.inputSchema
+        name: activitywatch_list_buckets_tool.name,
+        description: activitywatch_list_buckets_tool.description,
+        inputSchema: activitywatch_list_buckets_tool.inputSchema
       },
       {
-        name: queryExamplesTool.name,
-        description: queryExamplesTool.description,
-        inputSchema: queryExamplesTool.inputSchema
+        name: activitywatch_query_examples_tool.name,
+        description: activitywatch_query_examples_tool.description,
+        inputSchema: activitywatch_query_examples_tool.inputSchema
       },
       {
-        name: queryTool.name,
-        description: queryTool.description,
-        inputSchema: queryTool.inputSchema
+        name: activitywatch_run_query_tool.name,
+        description: activitywatch_run_query_tool.description,
+        inputSchema: activitywatch_run_query_tool.inputSchema
       },
       {
-        name: rawEventsTool.name,
-        description: rawEventsTool.description,
-        inputSchema: rawEventsTool.inputSchema
+        name: activitywatch_get_events_tool.name,
+        description: activitywatch_get_events_tool.description,
+        inputSchema: activitywatch_get_events_tool.inputSchema
       },
       {
-        name: directQueryTool.name,
-        description: directQueryTool.description,
-        inputSchema: directQueryTool.inputSchema
+        name: activitywatch_direct_query_tool.name,
+        description: activitywatch_direct_query_tool.description,
+        inputSchema: activitywatch_direct_query_tool.inputSchema
       }
     ]
   };
@@ -75,13 +75,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   // Default empty object if arguments is undefined
   let args = request.params.arguments || {};
   
-  if (request.params.name === bucketListTool.name) {
+  if (request.params.name === activitywatch_list_buckets_tool.name) {
     // Cast to the expected type for the bucket list tool
-    return makeSafeToolResponse(bucketListTool.handler)({
+    return makeSafeToolResponse(activitywatch_list_buckets_tool.handler)({
       type: typeof args.type === 'string' ? args.type : undefined,
       includeData: Boolean(args.includeData)
     });
-  } else if (request.params.name === directQueryTool.name) {
+  } else if (request.params.name === activitywatch_direct_query_tool.name) {
     // For the direct query tool (simplified version with minimal transformations)
     const directArgs = request.params.arguments || {};
     
@@ -96,14 +96,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       }))();
     }
     
-    return makeSafeToolResponse(directQueryTool.handler)({
+    return makeSafeToolResponse(activitywatch_direct_query_tool.handler)({
       timeperiods: Array.isArray(directArgs.timeperiods) ? directArgs.timeperiods : [directArgs.timeperiods],
       queryText: String(directArgs.queryText),
       name: typeof directArgs.name === 'string' ? directArgs.name : undefined
     });
-  } else if (request.params.name === queryExamplesTool.name) {
-    return makeSafeToolResponse(queryExamplesTool.handler)();
-  } else if (request.params.name === queryTool.name) {
+  } else if (request.params.name === activitywatch_query_examples_tool.name) {
+    return makeSafeToolResponse(activitywatch_query_examples_tool.handler)();
+  } else if (request.params.name === activitywatch_run_query_tool.name) {
     // For the query tool, we need to validate and normalize the args
     
     // First, log the raw arguments to debug format issues
@@ -225,7 +225,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     // Log the processed query
     console.error(`Processed query for execution: ${JSON.stringify({timeperiods: queryArgs.timeperiods, query: queryArgs.query})}`);
     
-    return makeSafeToolResponse(queryTool.handler)({
+    return makeSafeToolResponse(activitywatch_run_query_tool.handler)({
       timeperiods: queryArgs.timeperiods as string[],
       query: queryArgs.query as string[],
       name: typeof queryArgs.name === 'string' ? queryArgs.name : undefined
@@ -265,7 +265,7 @@ but may need additional configuration.
         isError: true
       };
     }
-  } else if (request.params.name === rawEventsTool.name) {
+  } else if (request.params.name === activitywatch_get_events_tool.name) {
     // For the raw events tool
     if (!args.bucketId || typeof args.bucketId !== 'string') {
       return makeSafeToolResponse(() => ({
@@ -277,7 +277,7 @@ but may need additional configuration.
       }))();
     }
     
-    return makeSafeToolResponse(rawEventsTool.handler)({
+    return makeSafeToolResponse(activitywatch_get_events_tool.handler)({
       bucketId: args.bucketId,
       limit: typeof args.limit === 'number' ? args.limit : undefined,
       start: typeof args.start === 'string' ? args.start : undefined,
@@ -301,10 +301,10 @@ async function main() {
   console.error("=======================");
   console.error("Version: 1.0.0");
   console.error("API Endpoint: http://localhost:5600/api/0");
-  console.error("Tools: list-buckets, query-examples, run-query, get-events");
+  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events, activitywatch_direct_query");
   console.error("=======================");
-  console.error("For help with query format, use the 'query-examples' tool first");
-  console.error("'run-query' Example format:");
+  console.error("For help with query format, use the 'activitywatch_query_examples' tool first");
+  console.error("'activitywatch_run_query' Example format:");
   console.error(`{
   "timeperiods": ["2024-10-28/2024-10-29"],
   "query": ["events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;"]

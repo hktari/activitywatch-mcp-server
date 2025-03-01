@@ -25,8 +25,8 @@ const inputSchema = {
   required: ["bucketId"]
 };
 
-export const rawEventsTool = {
-  name: "get-events",
+export const activitywatch_get_events_tool = {
+  name: "activitywatch_get_events",
   description: "Get raw events from an ActivityWatch bucket",
   inputSchema: inputSchema,
   handler: async (args: { bucketId: string; limit?: number; start?: string; end?: string }) => {
@@ -86,7 +86,7 @@ export const rawEventsTool = {
         if (statusCode === 404) {
           errorMessage = `Bucket not found: ${args.bucketId}
           
-Please check that you've entered the correct bucket ID. You can get a list of available buckets using the list-buckets tool.
+Please check that you've entered the correct bucket ID. You can get a list of available buckets using the activitywatch_list_buckets tool.
 `;
         }
         

@@ -1,11 +1,7 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  preset: 'ts-jest/presets/default-esm',
+  preset: 'ts-jest',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
@@ -14,6 +10,14 @@ export default {
       },
     ],
   },
-  testMatch: ['**/*.test.ts'],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node']
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  extensionsToTreatAsEsm: ['.ts'],
+  // Only test the TypeScript source files, not the compiled JavaScript
+  testMatch: ['<rootDir>/src/**/*.test.ts'],
+  // Ignore the dist directory entirely
+  testPathIgnorePatterns: ['<rootDir>/dist/'],
+  // Silence console output during tests
+  setupFilesAfterEnv: ['./jest.setup.js'],
 };
