@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server that connects to [ActivityWatch](https://activitywatch.net/), allowing LLMs like Claude to interact with your time tracking data.
 
+<a href="https://glama.ai/mcp/servers/msnzvab06f">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/msnzvab06f/badge" alt="ActivityWatch Server MCP server" />
+</a>
+
 ## Features
 
 - **List Buckets**: View all available ActivityWatch buckets
