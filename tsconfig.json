@@ -11,6 +11,8 @@
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "resolveJsonModule": true,
+    "sourceMap": true,
+    "inlineSourceMap": false,
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
