@@ -33,20 +33,37 @@ interface CategoryActivitySummary {
           activities: {
             name: string;
             duration: number;
+            formattedDuration: string;
           }[];
           totalDuration: number;
+          formattedTotalDuration: string;
         };
       };
       totalDuration: number;
+      formattedTotalDuration: string;
     };
   };
   uncategorized: {
     activities: {
       name: string;
       duration: number;
+      formattedDuration: string;
     }[];
     totalDuration: number;
+    formattedTotalDuration: string;
   };
+}
+
+// Helper function to format duration in seconds to hours and minutes
+function formatDuration(durationInSeconds: number): string {
+  const hours = Math.floor(durationInSeconds / 3600);
+  const minutes = Math.floor((durationInSeconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
 }
 
 // Get categories from ActivityWatch settings
@@ -167,12 +184,38 @@ async function getActivitiesByCategory(
 
     // Helper function to query events for a bucket
     const queryEventsForBucket = async (bucketId: string, sourceType: string): Promise<void> => {
-      const queryString = 
+      // Base query to get active events (not AFK)
+      let queryString = 
         `events = query_bucket('${bucketId}'); ` +
         `afk_events = query_bucket('${afkBucketId}'); ` +
         "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
-        "active_events = filter_period_intersect(events, not_afk); " +
-        "RETURN = active_events;";
+        "active_events = filter_period_intersect(events, not_afk); ";
+      
+      // Add merge operation based on source type
+      if (sourceType === 'window') {
+        // For window events, merge by app
+        queryString += "merged_events = merge_events_by_keys(active_events, ['app']); ";
+        queryString += "sorted_events = sort_by_duration(merged_events); ";
+        queryString += `limited_events = limit_events(sorted_events, ${limit}); `;
+        queryString += "RETURN = limited_events;";
+      } else if (sourceType === 'web') {
+        // For web events, merge by title and url
+        queryString += "merged_events = merge_events_by_keys(active_events, ['title', 'url']); ";
+        queryString += "sorted_events = sort_by_duration(merged_events); ";
+        queryString += `limited_events = limit_events(sorted_events, ${limit}); `;
+        queryString += "RETURN = limited_events;";
+      } else if (sourceType === 'vscode') {
+        // For vscode events, merge by file and project
+        queryString += "merged_events = merge_events_by_keys(active_events, ['file', 'project']); ";
+        queryString += "sorted_events = sort_by_duration(merged_events); ";
+        queryString += `limited_events = limit_events(sorted_events, ${limit}); `;
+        queryString += "RETURN = limited_events;";
+      } else {
+        // Fallback - just return the active events sorted and limited
+        queryString += "sorted_events = sort_by_duration(active_events); ";
+        queryString += `limited_events = limit_events(sorted_events, ${limit}); `;
+        queryString += "RETURN = limited_events;";
+      }
 
       const queryData = {
         query: [queryString],
@@ -185,7 +228,8 @@ async function getActivitiesByCategory(
         const eventsWithSource = response.data[0].map((event: ActivityEvent) => ({
           ...event,
           bucket: bucketId,
-          sourceType: sourceType
+          sourceType: sourceType,
+          formattedDuration: formatDuration(event.duration)
         }));
         allEvents = [...allEvents, ...eventsWithSource];
       }
@@ -233,6 +277,7 @@ async function getActivitiesByCategory(
         categories: {},
         uncategorized: {
           totalDuration: 0,
+          formattedTotalDuration: '0m',
           activities: []
         }
       };
@@ -246,8 +291,17 @@ async function getActivitiesByCategory(
           continue;
         }
 
-        // Extract app name for activity
-        const activityName = event.data.app;
+        // Extract name for activity based on source type
+        let activityName = "";
+        if (event.sourceType === 'window') {
+          activityName = event.data.app || "Unknown App";
+        } else if (event.sourceType === 'web') {
+          activityName = event.data.title || event.data.url || "Unknown Web Page";
+        } else if (event.sourceType === 'vscode') {
+          activityName = event.data.file || event.data.project || "Unknown File";
+        } else {
+          activityName = event.data.app || event.data.title || "Unknown Activity";
+        }
 
         if (isUncategorized) {
           // Add to uncategorized
@@ -255,14 +309,17 @@ async function getActivitiesByCategory(
 
           if (existingActivity) {
             existingActivity.duration += event.duration;
+            existingActivity.formattedDuration = formatDuration(existingActivity.duration);
           } else if (summary.uncategorized.activities.length < limit) {
             summary.uncategorized.activities.push({
               name: activityName,
-              duration: event.duration
+              duration: event.duration,
+              formattedDuration: formatDuration(event.duration)
             });
           }
 
           summary.uncategorized.totalDuration += event.duration;
+          summary.uncategorized.formattedTotalDuration = formatDuration(summary.uncategorized.totalDuration);
         } else {
           // Add to categorized
           const mainCategory = category[0];
@@ -272,7 +329,8 @@ async function getActivitiesByCategory(
           if (!summary.categories[mainCategory]) {
             summary.categories[mainCategory] = {
               subcategories: {},
-              totalDuration: 0
+              totalDuration: 0,
+              formattedTotalDuration: '0m'
             };
           }
 
@@ -280,7 +338,8 @@ async function getActivitiesByCategory(
           if (!summary.categories[mainCategory].subcategories[subCategory]) {
             summary.categories[mainCategory].subcategories[subCategory] = {
               activities: [],
-              totalDuration: 0
+              totalDuration: 0,
+              formattedTotalDuration: '0m'
             };
           }
 
@@ -291,16 +350,20 @@ async function getActivitiesByCategory(
 
           if (existingActivity) {
             existingActivity.duration += event.duration;
+            existingActivity.formattedDuration = formatDuration(existingActivity.duration);
           } else if (summary.categories[mainCategory].subcategories[subCategory].activities.length < limit) {
             summary.categories[mainCategory].subcategories[subCategory].activities.push({
               name: activityName,
-              duration: event.duration
+              duration: event.duration,
+              formattedDuration: formatDuration(event.duration)
             });
           }
 
           // Update durations
           summary.categories[mainCategory].subcategories[subCategory].totalDuration += event.duration;
+          summary.categories[mainCategory].subcategories[subCategory].formattedTotalDuration = formatDuration(summary.categories[mainCategory].subcategories[subCategory].totalDuration);
           summary.categories[mainCategory].totalDuration += event.duration;
+          summary.categories[mainCategory].formattedTotalDuration = formatDuration(summary.categories[mainCategory].totalDuration);
         }
       }
 
@@ -325,7 +388,7 @@ async function getActivitiesByCategory(
 // Export the tool
 export const activitywatch_category_activity_tool = {
   name: "activitywatch_category_activity",
-  description: "Get activities grouped by category from ActivityWatch",
+  description: "Get activities by category from ActivityWatch",
   inputSchema: {
     type: "object",
     properties: {
@@ -334,19 +397,22 @@ export const activitywatch_category_activity_tool = {
         items: {
           type: "string"
         },
-        description: "Array of time periods in the format 'YYYY-MM-DD/YYYY-MM-DD'"
+        description: "Array of timeperiods in the format 'YYYY-MM-DD/YYYY-MM-DD'"
       },
       format: {
         type: "string",
         enum: ["detailed", "summary"],
-        description: "Format of the output, either 'detailed' for all events with categories or 'summary' for aggregated data"
+        default: "summary",
+        description: "Format of the output"
       },
       includeUncategorized: {
         type: "boolean",
-        description: "Whether to include uncategorized activities in the results"
+        default: true,
+        description: "Whether to include uncategorized activities"
       },
       limit: {
         type: "number",
+        default: 5,
         description: "Maximum number of activities to return per category"
       }
     },
