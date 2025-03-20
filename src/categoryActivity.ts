@@ -5,7 +5,7 @@ const AW_API_BASE = process.env.AW_API_BASE || "http://127.0.0.1:5600/api/0";
 
 // Interfaces
 export interface Category {
-  name: string[];
+  name: string | string[];
   rule: {
     type: string;
     regex?: string;
@@ -85,7 +85,7 @@ async function getCategories(): Promise<Category[]> {
   }
 }
 
-// Categorize an event based on app name and title
+// Categorize an event based on all data properties
 function categorizeEvent(event: ActivityEvent, categories: Category[]): string[] {
   // Default to uncategorized
   let matchedCategory: string[] = ['Uncategorized'];
@@ -95,23 +95,45 @@ function categorizeEvent(event: ActivityEvent, categories: Category[]): string[]
   for (const category of categories) {
     if (category.rule.type === 'regex' && category.rule.regex) {
       const regex = new RegExp(category.rule.regex, category.rule.ignore_case ? 'i' : '');
+      let specificity = 0;
 
-      // Check if app name or title matches the regex
-      const appMatch = regex.test(event.data.app);
-      const titleMatch = regex.test(event.data.title);
+      // Check all properties in the data object for matches
+      for (const key in event.data) {
+        if (event.data[key] && typeof event.data[key] === 'string') {
+          if (regex.test(event.data[key])) {
+            // Different properties have different weights
+            if (key === 'app') {
+              specificity += 3; // Highest priority
+            } else if (key === 'title' || key === 'project') {
+              specificity += 2; // Medium priority
+            } else {
+              specificity += 1; // Lower priority for other fields
+            }
+          }
+        }
+      }
 
-      if (appMatch || titleMatch) {
-        // Calculate specificity based on the match
-        const specificity = (appMatch ? 2 : 0) + (titleMatch ? 1 : 0);
-
+      if (specificity > 0) {
         // If this category is more specific, use it
         if (specificity > maxSpecificity) {
-          matchedCategory = category.name;
+          // Handle category names with slashes (e.g., "Work/Programming/Hisense")
+          matchedCategory = typeof category.name === 'string' ? 
+            category.name.split('/') : 
+            Array.isArray(category.name) ? category.name : ['Uncategorized'];
+          
           maxSpecificity = specificity;
         }
         else if (specificity === maxSpecificity) {
-          console.warn(`Event matches multiple categories. Returning ${category.name} over ${matchedCategory}`);
-          matchedCategory = category.name;
+          const currentCategoryStr = matchedCategory.join('/');
+          const newCategoryStr = typeof category.name === 'string' ? 
+            category.name : 
+            Array.isArray(category.name) ? category.name.join('/') : 'Uncategorized';
+            
+          console.warn(`Event matches multiple categories with same specificity. Returning ${newCategoryStr} over ${currentCategoryStr}`);
+          
+          matchedCategory = typeof category.name === 'string' ? 
+            category.name.split('/') : 
+            Array.isArray(category.name) ? category.name : ['Uncategorized'];
         }
       }
     }
