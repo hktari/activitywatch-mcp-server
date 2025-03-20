@@ -21,6 +21,8 @@ export interface ActivityEvent {
     title: string;
     [key: string]: any;
   };
+  bucket: string;
+  sourceType: string;
 }
 
 interface CategoryActivitySummary {
@@ -163,67 +165,43 @@ async function getActivitiesByCategory(
     // Create an array to store all events
     let allEvents: ActivityEvent[] = [];
 
-    // Query 1: Get window events filtered by not-afk
-    const windowQueryString =
-      `window_events = query_bucket('${windowBucketId}'); ` +
-      `afk_events = query_bucket('${afkBucketId}'); ` +
-      "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
-      "active_events = filter_period_intersect(window_events, not_afk); " +
-      "RETURN = active_events;";
+    // Helper function to query events for a bucket
+    const queryEventsForBucket = async (bucketId: string, sourceType: string): Promise<void> => {
+      const queryString = 
+        `events = query_bucket('${bucketId}'); ` +
+        `afk_events = query_bucket('${afkBucketId}'); ` +
+        "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
+        "active_events = filter_period_intersect(events, not_afk); " +
+        "RETURN = active_events;";
 
-    const windowQueryData = {
-      query: [windowQueryString],
-      timeperiods: timeperiods
+      const queryData = {
+        query: [queryString],
+        timeperiods: timeperiods
+      };
+
+      const response = await axios.post(`${AW_API_BASE}/query/`, queryData);
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        // Add sourceType to each event in the array
+        const eventsWithSource = response.data[0].map((event: ActivityEvent) => ({
+          ...event,
+          bucket: bucketId,
+          sourceType: sourceType
+        }));
+        allEvents = [...allEvents, ...eventsWithSource];
+      }
     };
 
-    // Execute window events query
-    const windowResponse = await axios.post(`${AW_API_BASE}/query/`, windowQueryData);
-    if (windowResponse.data && Array.isArray(windowResponse.data) && windowResponse.data.length > 0) {
-      allEvents = [...allEvents, { ...windowResponse.data[0], bucket: windowBucketId }];
+    // Query window events
+    await queryEventsForBucket(windowBucketId, 'window');
+
+    // Query web events
+    for (const bucketId of webBucketIds) {
+      await queryEventsForBucket(bucketId, 'web');
     }
 
-    // Query 2: Get web events if available
-    if (webBucketIds.length > 0) {
-      for (const webBucketId of webBucketIds) {
-        const webQueryString =
-          `web_events = query_bucket('${webBucketId}'); ` +
-          `afk_events = query_bucket('${afkBucketId}'); ` +
-          "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
-          "active_web_events = filter_period_intersect(web_events, not_afk); " +
-          "RETURN = active_web_events;";
-
-        const webQueryData = {
-          query: [webQueryString],
-          timeperiods: timeperiods
-        };
-
-        const webResponse = await axios.post(`${AW_API_BASE}/query/`, webQueryData);
-        if (webResponse.data && Array.isArray(webResponse.data) && webResponse.data.length > 0) {
-          allEvents = [...allEvents, { ...webResponse.data[0], bucket: webBucketId }];
-        }
-      }
-    }
-
-    // Query 3: Get VSCode events if available
-    if (vscodeBucketIds.length > 0) {
-      for (const vscodeBucketId of vscodeBucketIds) {
-        const vscodeQueryString =
-          `vscode_events = query_bucket('${vscodeBucketId}'); ` +
-          `afk_events = query_bucket('${afkBucketId}'); ` +
-          "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
-          "active_vscode_events = filter_period_intersect(vscode_events, not_afk); " +
-          "RETURN = active_vscode_events;";
-
-        const vscodeQueryData = {
-          query: [vscodeQueryString],
-          timeperiods: timeperiods
-        };
-
-        const vscodeResponse = await axios.post(`${AW_API_BASE}/query/`, vscodeQueryData);
-        if (vscodeResponse.data && Array.isArray(vscodeResponse.data) && vscodeResponse.data.length > 0) {
-          allEvents = [...allEvents, { ...vscodeResponse.data[0], bucket: vscodeBucketId }];
-        }
-      }
+    // Query VSCode events
+    for (const bucketId of vscodeBucketIds) {
+      await queryEventsForBucket(bucketId, 'vscode');
     }
 
     // If no events were found, return an error
