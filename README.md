@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server that connects to [ActivityWatch](https://a
 - **Run Queries**: Execute powerful AQL (ActivityWatch Query Language) queries
 - **Get Raw Events**: Retrieve events directly from any bucket
 - **Get Settings**: Access ActivityWatch configuration settings
+- **Category Activity**: View activities grouped by customizable categories
 
 ## Installation
 
@@ -51,9 +52,21 @@ npm install activitywatch-mcp-server
 - Node.js (v14 or higher)
 - Claude for Desktop (or any other MCP client)
 
-## Usage
+## Configuration
 
-### Using with Claude for Desktop
+### ActivityWatch API URL
+
+By default, the server connects to ActivityWatch at `http://127.0.0.1:5600/api/0`. You can override this using the `AW_API_BASE` environment variable:
+
+```bash
+# Set temporarily for a single run
+AW_API_BASE=http://your-aw-host:5600/api/0 node dist/index.js
+
+# Or add to your shell configuration (e.g., ~/.zshrc)
+export AW_API_BASE=http://your-aw-host:5600/api/0
+```
+
+### MCP Configuration
 
 1. Open your Claude for Desktop configuration file:
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -96,12 +109,12 @@ Here are some example queries you can try in Claude:
 - **Get application usage summary**: "Can you show me which applications I've used the most today?"
 - **View browsing history**: "What websites have I spent the most time on today?"
 - **Check productivity**: "How much time have I spent in productivity apps today?"
-- **View settings**: "What are my ActivityWatch settings?" or "Can you check a specific setting in ActivityWatch?"
+
+- **View categorized activities**: "Show me my activities grouped by category"
 
 ## Available Tools
 
-### list-buckets
-
+### List Buckets
 Lists all available ActivityWatch buckets with optional type filtering.
 
 Parameters:
@@ -173,10 +186,6 @@ window_events = query_bucket(find_bucket("aw-watcher-window_"));
 code_events = filter_keyvals(window_events, "app", ["Code"]);
 RETURN = code_events;
 ```
-
-## Configuration
-
-The server connects to the ActivityWatch API at `http://localhost:5600` by default. If your ActivityWatch instance is running on a different host or port, you can modify this in the source code.
 
 ## Troubleshooting
 
