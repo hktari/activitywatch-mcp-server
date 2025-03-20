@@ -6,6 +6,7 @@ import { activitywatch_run_query_tool } from "./query.js";
 import { activitywatch_get_events_tool } from "./rawEvents.js";
 import { activitywatch_query_examples_tool } from "./queryExamples.js";
 import { activitywatch_get_settings_tool } from "./getSettings.js";
+import { activitywatch_category_activity_tool } from "./categoryActivity.js";
 
 // Helper function to handle type-safe tool responses
 const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
@@ -65,6 +66,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: activitywatch_get_settings_tool.name,
         description: activitywatch_get_settings_tool.description,
         inputSchema: activitywatch_get_settings_tool.inputSchema
+      },
+      {
+        name: activitywatch_category_activity_tool.name,
+        description: activitywatch_category_activity_tool.description,
+        inputSchema: activitywatch_category_activity_tool.inputSchema
       }
     ]
   };
@@ -268,32 +274,49 @@ but may need additional configuration.
     return makeSafeToolResponse(activitywatch_get_settings_tool.handler)({
       key: typeof args.key === 'string' ? args.key : undefined
     });
+  } else if (request.params.name === activitywatch_category_activity_tool.name) {
+    // For the category activity tool
+    const timeperiods = Array.isArray(args.timeperiods) ? args.timeperiods : 
+                      (typeof args.timeperiods === 'string' ? [args.timeperiods] : []);
+    const format = typeof args.format === 'string' && ['detailed', 'summary'].includes(args.format) ? 
+                  args.format as 'detailed' | 'summary' : 'summary';
+    const includeUncategorized = args.includeUncategorized !== false;
+    const limit = typeof args.limit === 'number' ? args.limit : 5;
+    
+    return makeSafeToolResponse(activitywatch_category_activity_tool.handler)(
+      timeperiods,
+      format,
+      includeUncategorized,
+      limit
+    );
+  } else {
+    // Unknown tool
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: Unknown tool "${request.params.name}"`
+        }
+      ],
+      isError: true
+    };
   }
-  
-  // Always return a properly formatted and type-safe response
-  return makeSafeToolResponse(() => ({
-    content: [{
-      type: "text",
-      text: `Error: Tool not found: ${request.params.name}`
-    }],
-    isError: true
-  }))();
 });
 
 async function main() {
-  // Output application banner
+  console.error("=======================");
   console.error("ActivityWatch MCP Server");
   console.error("=======================");
   console.error("Version: 1.1.0");
   console.error("API Endpoint: http://localhost:5600/api/0");
-  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events, activitywatch_get_settings");
+  console.error("Tools: activitywatch_list_buckets, activitywatch_query_examples, activitywatch_run_query, activitywatch_get_events, activitywatch_get_settings, activitywatch_category_activity");
   console.error("=======================");
   console.error("For help with query format, use the 'activitywatch_query_examples' tool first");
   console.error("'activitywatch_run_query' Example format:");
-  console.error(`{
-  "timeperiods": ["2024-10-28/2024-10-29"],
-  "query": ["events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;"]
-}`);
+  console.error("  {");
+  console.error("    \"timeperiods\": [\"2024-10-28/2024-10-29\"],");
+  console.error("    \"query\": [\"events = query_bucket('aw-watcher-window_UNI-qUxy6XHnLkk'); RETURN = events;\"]");
+  console.error("  }");
   console.error("IMPORTANT: The query array must contain a single string with ALL statements joined with semicolons;");
   console.error("the statements should NOT be split into separate array elements.");
   console.error("NOTE: Some MCP clients may wrap the query in an additional array. The server attempts to detect");
