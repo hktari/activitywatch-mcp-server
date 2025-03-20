@@ -160,78 +160,85 @@ async function getActivitiesByCategory(
       };
     }
 
-    // Prepare query for window events when not AFK
-    let queryString = `window_events = query_bucket('${windowBucketId}'); ` +
+    // Create an array to store all events
+    let allEvents: ActivityEvent[] = [];
+
+    // Query 1: Get window events filtered by not-afk
+    const windowQueryString =
+      `window_events = query_bucket('${windowBucketId}'); ` +
       `afk_events = query_bucket('${afkBucketId}'); ` +
       "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
-      "active_events = filter_period_intersect(window_events, not_afk); ";
+      "active_events = filter_period_intersect(window_events, not_afk); " +
+      "RETURN = active_events;";
 
-    // Add web buckets if available
-    if (webBucketIds.length > 0) {
-      webBucketIds.forEach((bucketId, index) => {
-        queryString += `web_events_${index} = query_bucket('${bucketId}'); `;
-      });
-
-      // Combine all web events
-      if (webBucketIds.length > 1) {
-        queryString += "web_events = concat_events(" +
-          webBucketIds.map((_, index) => `web_events_${index}`).join(", ") +
-          "); ";
-      } else {
-        queryString += "web_events = web_events_0; ";
-      }
-
-      // Filter web events when not AFK and add to active events
-      queryString += "not_afk_web = filter_period_intersect(web_events, not_afk); " +
-        "active_events = concat_events(active_events, not_afk_web); ";
-    }
-
-    // Add VSCode buckets if available
-    if (vscodeBucketIds.length > 0) {
-      vscodeBucketIds.forEach((bucketId, index) => {
-        queryString += `vscode_events_${index} = query_bucket('${bucketId}'); `;
-      });
-
-      // Combine all VSCode events
-      if (vscodeBucketIds.length > 1) {
-        queryString += "vscode_events = concat_events(" +
-          vscodeBucketIds.map((_, index) => `vscode_events_${index}`).join(", ") +
-          "); ";
-      } else {
-        queryString += "vscode_events = vscode_events_0; ";
-      }
-
-      // Filter VSCode events when not AFK and add to active events
-      queryString += "not_afk_vscode = filter_period_intersect(vscode_events, not_afk); " +
-        "active_events = concat_events(active_events, not_afk_vscode); ";
-    }
-
-    // Return the active events
-    queryString += "RETURN = active_events;";
-
-    const queryData = {
-      query: [queryString],
+    const windowQueryData = {
+      query: [windowQueryString],
       timeperiods: timeperiods
     };
 
-    // Query the ActivityWatch API
-    const response = await axios.post(`${AW_API_BASE}/query/`, queryData);
+    // Execute window events query
+    const windowResponse = await axios.post(`${AW_API_BASE}/query/`, windowQueryData);
+    if (windowResponse.data && Array.isArray(windowResponse.data) && windowResponse.data.length > 0) {
+      allEvents = [...allEvents, { ...windowResponse.data[0], bucket: windowBucketId }];
+    }
 
-    if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+    // Query 2: Get web events if available
+    if (webBucketIds.length > 0) {
+      for (const webBucketId of webBucketIds) {
+        const webQueryString =
+          `web_events = query_bucket('${webBucketId}'); ` +
+          `afk_events = query_bucket('${afkBucketId}'); ` +
+          "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
+          "active_web_events = filter_period_intersect(web_events, not_afk); " +
+          "RETURN = active_web_events;";
+
+        const webQueryData = {
+          query: [webQueryString],
+          timeperiods: timeperiods
+        };
+
+        const webResponse = await axios.post(`${AW_API_BASE}/query/`, webQueryData);
+        if (webResponse.data && Array.isArray(webResponse.data) && webResponse.data.length > 0) {
+          allEvents = [...allEvents, { ...webResponse.data[0], bucket: webBucketId }];
+        }
+      }
+    }
+
+    // Query 3: Get VSCode events if available
+    if (vscodeBucketIds.length > 0) {
+      for (const vscodeBucketId of vscodeBucketIds) {
+        const vscodeQueryString =
+          `vscode_events = query_bucket('${vscodeBucketId}'); ` +
+          `afk_events = query_bucket('${afkBucketId}'); ` +
+          "not_afk = filter_keyvals(afk_events, 'status', ['not-afk']); " +
+          "active_vscode_events = filter_period_intersect(vscode_events, not_afk); " +
+          "RETURN = active_vscode_events;";
+
+        const vscodeQueryData = {
+          query: [vscodeQueryString],
+          timeperiods: timeperiods
+        };
+
+        const vscodeResponse = await axios.post(`${AW_API_BASE}/query/`, vscodeQueryData);
+        if (vscodeResponse.data && Array.isArray(vscodeResponse.data) && vscodeResponse.data.length > 0) {
+          allEvents = [...allEvents, { ...vscodeResponse.data[0], bucket: vscodeBucketId }];
+        }
+      }
+    }
+
+    // If no events were found, return an error
+    if (allEvents.length === 0) {
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({ error: "No data returned from query" })
+          text: JSON.stringify({ error: "No data returned from queries" })
         }]
       };
     }
 
-    // Get the events from the first timeperiod
-    const events = response.data[0] as ActivityEvent[];
-
     if (format === "detailed") {
       // For detailed format, categorize each event and return
-      const categorizedEvents = events.map(event => ({
+      const categorizedEvents = allEvents.map(event => ({
         ...event,
         category: categorizeEvent(event, categories)
       }));
@@ -253,7 +260,7 @@ async function getActivitiesByCategory(
       };
 
       // Process each event
-      for (const event of events) {
+      for (const event of allEvents) {
         const category = categorizeEvent(event, categories);
         const isUncategorized = category.length === 1 && category[0] === "Uncategorized";
 
