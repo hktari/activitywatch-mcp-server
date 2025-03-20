@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 
-const AW_API_BASE = "http://localhost:5600/api/0";
+const AW_API_BASE = process.env.AW_API_BASE || "http://127.0.0.1:5600/api/0";
 
 const inputSchema = {
   type: "object",

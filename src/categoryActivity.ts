@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for ActivityWatch API
-const AW_API_BASE = 'http://localhost:5600/api/0';
+const AW_API_BASE = process.env.AW_API_BASE || "http://127.0.0.1:5600/api/0";
 
 // Interfaces
 export interface Category {
