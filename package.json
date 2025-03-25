@@ -38,7 +38,9 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.7.0",
+    "@types/lodash": "^4.17.16",
     "axios": "^1.6.7",
+    "lodash": "^4.17.21",
     "zod": "^3.22.4"
   },
   "devDependencies": {
