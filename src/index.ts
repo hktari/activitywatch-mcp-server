@@ -1,12 +1,12 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { activitywatch_list_buckets_tool } from "./bucketList.js";
-import { activitywatch_run_query_tool } from "./query.js";
-import { activitywatch_get_events_tool } from "./rawEvents.js";
-import { activitywatch_query_examples_tool } from "./queryExamples.js";
-import { activitywatch_get_settings_tool } from "./getSettings.js";
-import { activitywatch_category_activity_tool } from "./categoryActivity.js";
+import { activitywatch_list_buckets_tool } from "./tools/bucketList.js";
+import { activitywatch_run_query_tool, activitywatch_desktop_activity_tool } from "./tools/query.js";
+import { activitywatch_get_events_tool } from "./tools/rawEvents.js";
+import { activitywatch_query_examples_tool } from "./tools/queryExamples.js";
+import { activitywatch_get_settings_tool } from "./tools/getSettings.js";
+import { activitywatch_category_activity_tool } from "./tools/categoryActivity.js";
 
 // Helper function to handle type-safe tool responses
 const makeSafeToolResponse = (handler: Function) => async (...args: any[]) => {
@@ -71,6 +71,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: activitywatch_category_activity_tool.name,
         description: activitywatch_category_activity_tool.description,
         inputSchema: activitywatch_category_activity_tool.inputSchema
+      },
+      {
+        name: activitywatch_desktop_activity_tool.name,
+        description: activitywatch_desktop_activity_tool.description,
+        inputSchema: activitywatch_desktop_activity_tool.inputSchema
       }
     ]
   };

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios, { AxiosError } from 'axios';
-import { activitywatch_run_query_tool } from './query.js';
+import { activitywatch_run_query_tool } from '../query.js';
 
 // Mock axios
 jest.mock('axios');

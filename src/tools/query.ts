@@ -111,7 +111,7 @@ export const activitywatch_run_query_tool = {
   }
 };
 
-export const desktopActivity = {
+export const activitywatch_desktop_activity_tool = {
   name: "activitywatch_desktop_activity",
   description: "Get a comprehensive view of desktop activity including window, browser, and AFK data",
   inputSchema: {
