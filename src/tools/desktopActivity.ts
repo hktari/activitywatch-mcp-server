@@ -9,17 +9,6 @@ export const activitywatch_desktop_activity_tool = {
     inputSchema: {
         type: "object",
         properties: {
-            timeperiods: {
-                type: "array",
-                description: "Time periods to query. Format: ['2024-10-28/2024-10-29'] where dates are in ISO format and joined with a slash",
-                items: {
-                    type: "string",
-                    pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-                    description: "Time period in format 'start-date/end-date. to query today's data set 'start-date' to today's date and 'end-date' to tomorrow's date'"
-                },
-                minItems: 1,
-                maxItems: 10
-            },
             startDate: {
                 type: "string",
                 description: "Start date in ISO format (e.g. '2024-02-01'). If not provided, defaults to start of current day"
@@ -30,14 +19,11 @@ export const activitywatch_desktop_activity_tool = {
             }
         }
     },
-    async handler(args: { timeperiods?: string[]; startDate?: string; endDate?: string }) {
+    async handler(args: { startDate?: string; endDate?: string }) {
         try {
-            // Default to current day if no timeperiods provided
-            if (!args.timeperiods || args.timeperiods.length === 0) {
-                const startDate = args.startDate || moment().startOf('day').toISOString();
-                const endDate = args.endDate || moment().endOf('day').toISOString();
-                args.timeperiods = [toAWTimeperiod(startDate, endDate)];
-            }
+            const startDate = args.startDate || moment().startOf('day').toISOString();
+            const endDate = args.endDate || moment().endOf('day').toISOString();
+            const timeperiod = toAWTimeperiod(startDate, endDate);
 
             const buckets: { [id: Bucket['id']]: Bucket } = (await axios.get(`${AW_API_BASE}/buckets`)).data;
 
@@ -46,7 +32,6 @@ export const activitywatch_desktop_activity_tool = {
 
             const categories = await getCategories();
 
-            // TODO: test
             const query = fullDesktopQuery({
                 categories,
                 bid_window: windowBucket?.id || '',
@@ -56,11 +41,13 @@ export const activitywatch_desktop_activity_tool = {
                 filter_afk: true,
             });
 
+            const payload = {
+                timeperiods: [timeperiod],
+                query: [query.join('')]
+            };
+            
             try {
-                const response = await axios.post(`${AW_API_BASE}/query`, {
-                    timeperiods: args.timeperiods,
-                    query: [query]
-                });
+                const response = await axios.post(`${AW_API_BASE}/query`, payload);
 
                 return {
                     content: [

@@ -18,16 +18,71 @@ export interface QueryResult {
     isError: boolean;
 }
 
+interface CategoryRule {
+    type: 'regex' | 'none';
+    regex?: string;
+    ignore_case?: boolean;
+}
+
+interface CategoryData {
+    color?: string;
+    score?: number;
+}
+
+interface CategoryClass {
+    id: number;
+    name: string[];
+    rule: CategoryRule;
+    data: CategoryData;
+}
+
+interface ViewElement {
+    size: number;
+    type: string;
+}
+
+interface View {
+    id: string;
+    name: string;
+    elements: ViewElement[];
+}
+
+interface Settings {
+    classes: CategoryClass[];
+    durationDefault: number;
+    initialTimestamp: string;
+    landingpage: string;
+    newReleaseCheckData: {
+        howOftenToCheck: number;
+        isEnabled: boolean;
+        nextCheckTime: string;
+        timesChecked: number;
+    };
+    requestTimeout: number;
+    startOfDay: string;
+    startOfWeek: string;
+    theme: string;
+    userSatisfactionPollData: {
+        isEnabled: boolean;
+        nextPollTime: string;
+        timesPollIsShown: number;
+    };
+    views: View[];
+}
+
 // Get categories from ActivityWatch settings
 export async function getCategories(): Promise<Category[]> {
     try {
-        const response = await axios.get(`${AW_API_BASE}/settings`);
+        const response = await axios.get<Settings>(`${AW_API_BASE}/settings`);
 
         if (response.data && response.data.classes) {
-            return response.data.classes.map((cls: any) => ({
-                name: cls.name,
-                rule: cls.rule
-            }));
+            return response.data.classes.map((cls) => [
+                cls.name,
+                {
+                    type: cls.rule.type,
+                    regex: cls.rule.regex
+                }
+            ]);
         }
 
         return [];
