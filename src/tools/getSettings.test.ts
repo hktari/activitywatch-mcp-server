@@ -28,7 +28,7 @@ describe('activitywatch_get_settings_tool', () => {
     const result = await activitywatch_get_settings_tool.handler({});
 
     // Expectations
-    expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:5600/api/0/settings');
+    expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1:5600/api/0/settings');
     expect(result).toEqual({
       content: [
         {
@@ -48,7 +48,7 @@ describe('activitywatch_get_settings_tool', () => {
     const result = await activitywatch_get_settings_tool.handler({ key: 'setting1' });
 
     // Expectations
-    expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:5600/api/0/settings/setting1');
+    expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1:5600/api/0/settings/setting1');
     expect(result).toEqual({
       content: [
         {
@@ -68,7 +68,7 @@ describe('activitywatch_get_settings_tool', () => {
     const result = await activitywatch_get_settings_tool.handler({ key: 'complex/key with spaces' });
 
     // Expectations - check that the URL was properly encoded
-    expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:5600/api/0/settings/complex%2Fkey%20with%20spaces');
+    expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1:5600/api/0/settings/complex%2Fkey%20with%20spaces');
     expect(result).toEqual({
       content: [
         {
@@ -138,7 +138,7 @@ describe('activitywatch_get_settings_tool', () => {
     const result = await activitywatch_get_settings_tool.handler({ key: undefined });
 
     // Expectations - should call the endpoint for all settings
-    expect(mockedAxios.get).toHaveBeenCalledWith('http://localhost:5600/api/0/settings');
+    expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1:5600/api/0/settings');
     expect(result).toEqual({
       content: [
         {

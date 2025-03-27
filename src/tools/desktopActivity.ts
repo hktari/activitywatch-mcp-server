@@ -1,6 +1,7 @@
 import axios from 'axios';
 import moment from 'moment';
-import { AW_API_BASE, handleApiError, toAWTimeperiod } from './utils.js';
+import { AW_API_BASE, Bucket, getCategories, handleApiError, toAWTimeperiod } from './utils.js';
+import { fullDesktopQuery } from '../lib/queries.js';
 
 export const activitywatch_desktop_activity_tool = {
     name: "activitywatch_desktop_activity",
@@ -38,45 +39,22 @@ export const activitywatch_desktop_activity_tool = {
                 args.timeperiods = [toAWTimeperiod(startDate, endDate)];
             }
 
-            // Construct the query
-            const query = `
-                events = query_bucket('aw-watcher-window_');
-                not_afk = query_bucket('aw-watcher-afk_');
-                browser_events = query_bucket('aw-watcher-web-firefox_');
+            const buckets: { [id: Bucket['id']]: Bucket } = (await axios.get(`${AW_API_BASE}/buckets`)).data;
 
-                events = filter_period_intersect(events, not_afk);
-                title_events = sort_by_duration(merge_events_by_keys(events, ['app', 'title']));
-                app_events = sort_by_duration(merge_events_by_keys(title_events, ['app']));
-                cat_events = sort_by_duration(merge_events_by_keys(events, ['$category']));
-                app_events = limit_events(app_events, 5);
-                title_events = limit_events(title_events, 5);
-                duration = sum_durations(events);
+            const windowBucket = Object.values(buckets).find(b => b.id.includes('aw-watcher-window'));
+            const afkBucket = Object.values(buckets).find(b => b.id.includes('aw-watcher-afk'));
 
-                browser_events = split_url_events(browser_events);
-                browser_urls = merge_events_by_keys(browser_events, ['url']);
-                browser_urls = sort_by_duration(browser_urls);
-                browser_urls = limit_events(browser_urls, 5);
-                browser_domains = merge_events_by_keys(browser_events, ['$domain']);
-                browser_domains = sort_by_duration(browser_domains);
-                browser_domains = limit_events(browser_domains, 5);
-                browser_duration = sum_durations(browser_events);
+            const categories = await getCategories();
 
-                RETURN = {
-                    'events': events,
-                    'window': {
-                        'app_events': app_events,
-                        'title_events': title_events,
-                        'cat_events': cat_events,
-                        'active_events': not_afk,
-                        'duration': duration
-                    },
-                    'browser': {
-                        'domains': browser_domains,
-                        'urls': browser_urls,
-                        'duration': browser_duration
-                    }
-                };
-            `;
+            // TODO: test
+            const query = fullDesktopQuery({
+                categories,
+                bid_window: windowBucket?.id || '',
+                bid_afk: afkBucket?.id || '',
+                filter_categories: [],
+                bid_browsers: [],
+                filter_afk: true,
+            });
 
             try {
                 const response = await axios.post(`${AW_API_BASE}/query`, {
