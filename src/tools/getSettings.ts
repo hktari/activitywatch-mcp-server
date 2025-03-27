@@ -16,6 +16,7 @@ const inputSchema = {
   }
 };
 
+
 export const activitywatch_get_settings_tool = {
   name: "activitywatch_get_settings",
   description: "Get ActivityWatch settings. Can retrieve all settings or a specific key if provided.",

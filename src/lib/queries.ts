@@ -19,12 +19,12 @@ function safeHostname(hostname: string): string {
   return hostname.replace(/[^a-zA-Z0-9_]/g, '');
 }
 
-interface Rule {
+export  interface Rule {
   type: string;
   regex?: string;
 }
 
-type Category = [string[], Rule];
+export type Category = [string[], Rule];
 
 interface BaseQueryParams {
   include_audible?: boolean;
