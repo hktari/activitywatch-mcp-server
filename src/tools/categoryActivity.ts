@@ -90,7 +90,7 @@ function formatResponse(queryResult: any, args: {
     // For detailed format, return structured data
     return {
         content: [{
-            type: "json",
+            type: "text",
             text: JSON.stringify({
                 timeperiod: args.timeperiod,
                 categories: categories_data

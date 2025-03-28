@@ -266,7 +266,7 @@ export const activitywatch_desktop_activity_tool = {
                 );
 
                 if (args.format === 'detailed') {
-                    return { content: [{ type: "json", text: JSON.stringify(response) }], isError: false };
+                    return { content: [{ type: "text", text: JSON.stringify(response) }], isError: false };
                 } else {
                     return { content: formatQueryResponseAsSummary(response), isError: false };
                 }
