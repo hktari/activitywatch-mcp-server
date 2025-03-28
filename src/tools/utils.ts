@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import moment from 'moment';
+export const AW_API_BASE = process.env.AW_API_BASE || "http://127.0.0.1:5600/api/0";
 
 export function toAWTimeperiod(startDate: string, endDate: string): string {
     const startDateMoment = moment(startDate);
