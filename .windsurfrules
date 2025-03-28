@@ -1,0 +1,1 @@
+1. when querying AW for events for today, the timespan parameter end date should be set to tomorrow. Otherwise, the query will NOT return today's events.

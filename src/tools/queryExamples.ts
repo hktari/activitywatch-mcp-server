@@ -29,8 +29,9 @@ All queries must follow this structure:
 
 Note that:
 1. 'timeperiods' is an array with date ranges in the format "start/end"
-2. 'query' is an array with a SINGLE STRING containing ALL statements
-3. All query statements are in the same string, separated by semicolons
+2. to query today's data set "start" to today's date and "end" to tomorrow's date
+3. 'query' is an array with a SINGLE STRING containing ALL statements
+4. All query statements are in the same string, separated by semicolons
 
 ## COMMONLY USED QUERIES
 

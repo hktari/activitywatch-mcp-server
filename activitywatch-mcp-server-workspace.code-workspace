@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "\\\\wsl.localhost\\Ubuntu\\root\\source\\personal\\activitywatch\\aw-client"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "\\\\wsl.localhost\\Ubuntu\\root\\source\\personal\\activitywatch\\aw-server-rust\\aw-webui"
+		}
+	],
+	"settings": {}
+}
