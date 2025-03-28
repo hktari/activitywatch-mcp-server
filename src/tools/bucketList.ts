@@ -1,7 +1,5 @@
-import { z } from 'zod';
-import axios, { AxiosError } from 'axios';
-
-const AW_API_BASE = process.env.AW_API_BASE || "http://127.0.0.1:5600/api/0";
+import { aw } from '../lib/aw-client/index.js';
+import { handleApiError } from './utils.js';
 
 interface Bucket {
   id?: string;
@@ -38,8 +36,8 @@ export const activitywatch_list_buckets_tool = {
   // Properly structure the returned content for MCP
   handler: async (args: { type?: string; includeData?: boolean }) => {
     try {
-      const response = await axios.get(`${AW_API_BASE}/buckets`);
-      const buckets: Record<string, Bucket> = response.data;
+      // Use the aw-client to fetch buckets
+      const buckets = await aw.getBuckets();
 
       // Convert bucket record to array with guaranteed IDs
       let bucketList: BucketWithId[] = Object.entries(buckets).map(([bucketId, bucket]) => ({
@@ -69,7 +67,7 @@ export const activitywatch_list_buckets_tool = {
         return result;
       });
 
-            // Begin with the formatted buckets as JSON
+      // Begin with the formatted buckets as JSON
       let resultText = JSON.stringify(formattedBuckets, null, 2);
       
       // Only add helpful guidance in production mode, not test mode
@@ -92,57 +90,11 @@ export const activitywatch_list_buckets_tool = {
             type: "text",
             text: resultText
           }
-        ]
+        ],
+        isError: false
       };
     } catch (error) {
-      console.error("Error in bucket list tool:", error);
-      
-      // Check if the error is an Axios error with a response property
-      if (axios.isAxiosError(error) && error.response) {
-        const statusCode = error.response.status;
-        let errorMessage = `Failed to fetch buckets: ${error.message} (Status code: ${statusCode})`;
-        
-        // Include response data if available
-        if (error.response.data) {
-          const errorDetails = typeof error.response.data === 'object'
-            ? JSON.stringify(error.response.data)
-            : String(error.response.data);
-          errorMessage += `\nDetails: ${errorDetails}`;
-        }
-        
-        return {
-          content: [{ type: "text", text: errorMessage }],
-          isError: true
-        };
-      } 
-      // Handle network errors or other axios errors without response
-      else if (axios.isAxiosError(error)) {
-        const errorMessage = `Failed to fetch buckets: ${error.message}
-
-This appears to be a network or connection error. Please check:
-- The ActivityWatch server is running (http://localhost:5600)
-- The API base URL is correct (currently: ${AW_API_BASE})
-- No firewall or network issues are blocking the connection
-`;
-        return {
-          content: [{ type: "text", text: errorMessage }],
-          isError: true
-        };
-      } 
-      // Handle non-axios errors
-      else if (error instanceof Error) {
-        return {
-          content: [{ type: "text", text: `Failed to fetch buckets: ${error.message}` }],
-          isError: true
-        };
-      } 
-      // Fallback for unknown errors
-      else {
-        return {
-          content: [{ type: "text", text: "Failed to fetch buckets: Unknown error" }],
-          isError: true
-        };
-      }
+      return handleApiError(error);
     }
   }
 };

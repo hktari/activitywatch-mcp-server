@@ -191,7 +191,13 @@ export const activitywatch_desktop_activity_tool = {
     async handler(args: { format?: string; startDate?: string; endDate?: string }) {
         try {
             const startDate = args.startDate || moment().startOf('day').toISOString();
-            const endDate = args.endDate || moment().endOf('day').toISOString();
+            // When querying for today's events, make sure end date is set to tomorrow
+            let endDate = args.endDate;
+            if (!endDate && moment(startDate).isSame(moment(), 'day')) {
+                endDate = moment().add(1, 'day').startOf('day').toISOString();
+            } else {
+                endDate = endDate || moment().endOf('day').toISOString();
+            }
 
             // Create timeperiod in the format expected by the AW client
             const startMoment = moment(startDate);
@@ -252,6 +258,6 @@ export const activitywatch_desktop_activity_tool = {
 };
 
 interface ToolResponse {
-    content: { type: "text"; text: string }[];
+    content: { type: "text" | "json"; text: string }[];
     isError: boolean;
 }

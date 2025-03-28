@@ -1,6 +1,6 @@
-import axios from 'axios';
+import { aw } from '../lib/aw-client/index.js';
 import moment from 'moment';
-import { AW_API_BASE, handleApiError, toAWTimeperiod } from './utils.js';
+import { handleApiError, toAWTimeperiod } from './utils.js';
 
 const inputSchema = {
     type: "object",
@@ -72,48 +72,46 @@ export const activitywatch_run_query_tool = {
                 if (testResult) return testResult;
             }
 
-            // Process timeperiods to ensure correct format
-            let formattedTimeperiods: string[] = [];
+            // Process timeperiods
+            let timeperiods: [Date, Date][] = [];
 
             if (args.timeperiods && args.timeperiods.length > 0) {
-                // If we have exactly two timeperiods, combine them into a single time period string
-                if (args.timeperiods.length === 2 &&
-                    !args.timeperiods[0].includes('/') &&
-                    !args.timeperiods[1].includes('/')) {
-                    formattedTimeperiods.push(`${args.timeperiods[0]}/${args.timeperiods[1]}`);
-                }
-                // Otherwise use the timeperiods as provided
-                else {
-                    args.timeperiods.forEach(period => {
-                        if (period.includes('/')) {
-                            formattedTimeperiods.push(period);
-                        } else {
-                            formattedTimeperiods.push(period);
-                        }
-                    });
-                }
-            } else if (args.startDate && args.endDate) {
-                formattedTimeperiods.push(toAWTimeperiod(args.startDate, args.endDate));
+                // Convert string timeperiods to Date pairs
+                timeperiods = args.timeperiods.map(period => {
+                    const [start, end] = period.split('/');
+                    return [new Date(start), new Date(end)];
+                });
             } else {
-                const startDate = moment().startOf('day').toISOString();
-                const endDate = moment().endOf('day').toISOString();
-                formattedTimeperiods.push(toAWTimeperiod(startDate, endDate));
+                // Use startDate and endDate or defaults
+                const startDate = args.startDate ? new Date(args.startDate) : moment().startOf('day').toDate();
+                let endDate;
+                
+                // When querying for today's events, make sure end date is set to tomorrow
+                if (!args.endDate && moment(startDate).isSame(moment(), 'day')) {
+                    endDate = moment().add(1, 'day').startOf('day').toDate();
+                } else {
+                    endDate = args.endDate ? new Date(args.endDate) : moment().endOf('day').toDate();
+                }
+                
+                timeperiods = [[startDate, endDate]];
             }
 
-            // Format queries
-            const formattedQueries = args.query.map(q => q.trim());
+            // Get the query string
+            const queryStr = args.query[0].trim();
 
             try {
-                const response = await axios.post(`${AW_API_BASE}/query`, {
-                    timeperiods: formattedTimeperiods,
-                    query: formattedQueries
-                });
+                // Use the aw-client to execute the query
+                const response = await aw.query(
+                    queryStr, 
+                    timeperiods,
+                    args.name
+                );
 
                 return {
                     content: [
                         {
                             type: "text",
-                            text: JSON.stringify(response.data, null, 2)
+                            text: JSON.stringify(response, null, 2)
                         }
                     ],
                     isError: false
