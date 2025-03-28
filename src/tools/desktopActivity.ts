@@ -185,23 +185,46 @@ export const activitywatch_desktop_activity_tool = {
             endDate: {
                 type: "string",
                 description: "End date in ISO format (e.g. '2024-02-28'). If not provided, defaults to end of current day"
+            },
+            timeperiods: {
+                type: "array",
+                description: "Time periods to query in [start, end] format",
+                items: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 2,
+                    items: {
+                        type: "string",
+                        description: "Date in ISO format (e.g. '2024-02-01')"
+                    }
+                },
+                minItems: 1,
+                maxItems: 10
             }
         }
     },
-    async handler(args: { format?: string; startDate?: string; endDate?: string }) {
+    async handler(args: { format?: string; startDate?: string; endDate?: string; timeperiods?: [string, string][] }) {
         try {
-            const startDate = args.startDate || moment().startOf('day').toISOString();
-            // When querying for today's events, make sure end date is set to tomorrow
-            let endDate = args.endDate;
-            if (!endDate && moment(startDate).isSame(moment(), 'day')) {
-                endDate = moment().add(1, 'day').startOf('day').toISOString();
-            } else {
-                endDate = endDate || moment().endOf('day').toISOString();
-            }
+            // Process timeperiods
+            let timeperiods: [Date | string, Date | string][] = [];
 
-            // Create timeperiod in the format expected by the AW client
-            const startMoment = moment(startDate);
-            const endMoment = moment(endDate);
+            if (args.timeperiods && args.timeperiods.length > 0) {
+                // Use provided timeperiods directly
+                timeperiods = args.timeperiods;
+            } else {
+                // Use startDate and endDate parameters
+                const startDate = args.startDate || moment().startOf('day').toISOString();
+                
+                // When querying for today's events, make sure end date is set to tomorrow
+                let endDate = args.endDate;
+                if (!endDate && moment(startDate).isSame(moment(), 'day')) {
+                    endDate = moment().add(1, 'day').startOf('day').toISOString();
+                } else {
+                    endDate = endDate || moment().endOf('day').toISOString();
+                }
+                
+                timeperiods = [[startDate, endDate]];
+            }
 
             // Fetch categories
             const categories = await getCategories();
@@ -237,10 +260,9 @@ export const activitywatch_desktop_activity_tool = {
 
             try {
                 // Execute query with our reimplemented client
-                // Note: For today's data, the client will automatically set end date to tomorrow
                 const response = await aw.query(
                     queryStr,
-                    [[startMoment.toDate(), endMoment.toDate()]]
+                    timeperiods
                 );
 
                 if (args.format === 'detailed') {

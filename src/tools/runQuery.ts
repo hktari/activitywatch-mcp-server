@@ -7,11 +7,15 @@ const inputSchema = {
     properties: {
         timeperiods: {
             type: "array",
-            description: "Time periods to query. Format: ['2024-10-28/2024-10-29'] where dates are in ISO format and joined with a slash",
+            description: "Time periods to query in [start, end] format",
             items: {
-                type: "string",
-                pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-                description: "Time period in format 'start-date/end-date. to query today's data set 'start-date' to today's date and 'end-date' to tomorrow's date'"
+                type: "array",
+                minItems: 2,
+                maxItems: 2,
+                items: {
+                    type: "string",
+                    description: "Date in ISO format (e.g. '2024-02-01')"
+                }
             },
             minItems: 1,
             maxItems: 10
@@ -44,7 +48,7 @@ const inputSchema = {
 };
 
 // Helper function for test case handling
-function handleTestCases(args: { timeperiods?: string[]; query: string[]; name?: string; startDate?: string; endDate?: string }) {
+function handleTestCases(args: { timeperiods?: [string, string][]; query: string[]; name?: string; startDate?: string; endDate?: string }) {
     // Mock response for success test
     if (args.query[0].includes('afk_events = query_bucket')) {
         return {
@@ -64,7 +68,7 @@ export const activitywatch_run_query_tool = {
     name: "activitywatch_run_query",
     description: "Run a query in ActivityWatch's query language",
     inputSchema,
-    handler: async (args: { timeperiods?: string[]; query: string[]; name?: string; startDate?: string; endDate?: string }) => {
+    handler: async (args: { timeperiods?: [string, string][]; query: string[]; name?: string; startDate?: string; endDate?: string }) => {
         try {
             // Handle special test cases if we're in test mode
             if (process.env.NODE_ENV === 'test') {
@@ -73,24 +77,21 @@ export const activitywatch_run_query_tool = {
             }
 
             // Process timeperiods
-            let timeperiods: [Date, Date][] = [];
+            let timeperiods: [Date | string, Date | string][] = [];
 
             if (args.timeperiods && args.timeperiods.length > 0) {
-                // Convert string timeperiods to Date pairs
-                timeperiods = args.timeperiods.map(period => {
-                    const [start, end] = period.split('/');
-                    return [new Date(start), new Date(end)];
-                });
+                // Use provided timeperiods directly
+                timeperiods = args.timeperiods;
             } else {
                 // Use startDate and endDate or defaults
-                const startDate = args.startDate ? new Date(args.startDate) : moment().startOf('day').toDate();
+                const startDate = args.startDate || moment().startOf('day').toISOString();
                 let endDate;
                 
                 // When querying for today's events, make sure end date is set to tomorrow
                 if (!args.endDate && moment(startDate).isSame(moment(), 'day')) {
-                    endDate = moment().add(1, 'day').startOf('day').toDate();
+                    endDate = moment().add(1, 'day').startOf('day').toISOString();
                 } else {
-                    endDate = args.endDate ? new Date(args.endDate) : moment().endOf('day').toDate();
+                    endDate = args.endDate || moment().endOf('day').toISOString();
                 }
                 
                 timeperiods = [[startDate, endDate]];

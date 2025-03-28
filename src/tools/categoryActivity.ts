@@ -116,11 +116,15 @@ export const activitywatch_category_activity_tool = {
             },
             timeperiods: {
                 type: "array",
-                description: "Time periods to query. Format: ['2024-10-28/2024-10-29'] where dates are in ISO format and joined with a slash",
+                description: "Time periods to query in [start, end] format",
                 items: {
-                    type: "string",
-                    pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-                    description: "Time period in format 'start-date/end-date. to query today's data set 'start-date' to today's date and 'end-date' to tomorrow's date'"
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 2,
+                    items: {
+                        type: "string",
+                        description: "Date in ISO format (e.g. '2024-02-01')"
+                    }
                 },
                 minItems: 1,
                 maxItems: 10
@@ -146,7 +150,7 @@ export const activitywatch_category_activity_tool = {
     async handler(args: {
         startDate?: string;
         endDate?: string;
-        timeperiods?: string[];
+        timeperiods?: [string, string][];
         limit?: number;
         format?: "detailed" | "summary";
         includeUncategorized?: boolean;
@@ -161,8 +165,6 @@ export const activitywatch_category_activity_tool = {
 
             const windowBucketId = buckets.find((b: Bucket) => b.type === 'currentwindow')?.id;
             const afkBucketId = buckets.find((b: Bucket) => b.type === 'afkstatus')?.id;
-            const browserBuckets = buckets.filter((b: Bucket) => b.type === 'web.tab.current');
-            const stopwatchBuckets = buckets.filter((b: Bucket) => b.type === 'stopwatch');
 
             if (!windowBucketId || !afkBucketId) {
                 throw new Error('Required buckets not found. Make sure aw-watcher-window and aw-watcher-afk are running.');
@@ -172,8 +174,7 @@ export const activitywatch_category_activity_tool = {
             const queryParams: DesktopQueryParams = {
                 bid_window: windowBucketId,
                 bid_afk: afkBucketId,
-                bid_browsers: browserBuckets.map((bucket: Bucket) => bucket.id),
-                bid_stopwatch: stopwatchBuckets.map((bucket: Bucket) => bucket.id),
+                bid_browsers: [],
                 categories: categories,
                 filter_afk: true,
                 include_audible: true,
@@ -182,29 +183,26 @@ export const activitywatch_category_activity_tool = {
             const query = categoryQuery(queryParams);
 
             // Step 4: Prepare timeperiods
-            const startDate = args.startDate || moment().startOf('day').toISOString();
-            // When querying for today's events, make sure end date is set to tomorrow
-            let endDate = args.endDate;
-            if (!endDate && moment(startDate).isSame(moment(), 'day')) {
-                endDate = moment().add(1, 'day').startOf('day').toISOString();
-            } else {
-                endDate = endDate || moment().endOf('day').toISOString();
-            }
-            
-            // Create time periods array
-            let timeperiods: [Date, Date][] = [];
+            let timeperiods: [Date | string, Date | string][] = [];
             let timeperiodStr: string = '';
             
             if (args.timeperiods && args.timeperiods.length > 0) {
-                // Use provided timeperiods
-                timeperiods = args.timeperiods.map(period => {
-                    const [start, end] = period.split('/');
-                    timeperiodStr = period;
-                    return [new Date(start), new Date(end)];
-                });
+                // Use provided timeperiods directly
+                timeperiods = args.timeperiods;
+                timeperiodStr = args.timeperiods.map(([start, end]) => `${start}/${end}`).join(', ');
             } else {
                 // Use startDate and endDate parameters
-                timeperiods = [[new Date(startDate), new Date(endDate)]];
+                const startDate = args.startDate || moment().startOf('day').toISOString();
+                
+                // When querying for today's events, make sure end date is set to tomorrow
+                let endDate = args.endDate;
+                if (!endDate && moment(startDate).isSame(moment(), 'day')) {
+                    endDate = moment().add(1, 'day').startOf('day').toISOString();
+                } else {
+                    endDate = endDate || moment().endOf('day').toISOString();
+                }
+                
+                timeperiods = [[startDate, endDate]];
                 timeperiodStr = `${startDate}/${endDate}`;
             }
             
