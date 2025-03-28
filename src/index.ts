@@ -68,16 +68,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: activitywatch_category_activity_tool.description,
         inputSchema: activitywatch_category_activity_tool.inputSchema
       },
-      {
-        name: activitywatch_get_events_tool.name,
-        description: activitywatch_get_events_tool.description,
-        inputSchema: activitywatch_get_events_tool.inputSchema
-      },
-      {
-        name: activitywatch_get_settings_tool.name,
-        description: activitywatch_get_settings_tool.description,
-        inputSchema: activitywatch_get_settings_tool.inputSchema
-      }
+      // {
+      //   name: activitywatch_get_events_tool.name,
+      //   description: activitywatch_get_events_tool.description,
+      //   inputSchema: activitywatch_get_events_tool.inputSchema
+      // },
+      // {
+      //   name: activitywatch_get_settings_tool.name,
+      //   description: activitywatch_get_settings_tool.description,
+      //   inputSchema: activitywatch_get_settings_tool.inputSchema
+      // }
     ]
   };
 });
