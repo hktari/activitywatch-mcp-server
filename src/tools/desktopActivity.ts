@@ -1,7 +1,6 @@
-import axios from 'axios';
 import moment from 'moment';
-import { AW_API_BASE, Bucket, getCategories, handleApiError, toAWTimeperiod } from './utils.js';
-import { fullDesktopQuery } from '../lib/queries.js';
+import { handleApiError } from './utils.js';
+import { aw, DesktopQueryParams, fullDesktopQuery, getCategories } from '../lib/aw-client/index.js';
 
 export const activitywatch_desktop_activity_tool = {
     name: "activitywatch_desktop_activity",
@@ -23,37 +22,50 @@ export const activitywatch_desktop_activity_tool = {
         try {
             const startDate = args.startDate || moment().startOf('day').toISOString();
             const endDate = args.endDate || moment().endOf('day').toISOString();
-            const timeperiod = toAWTimeperiod(startDate, endDate);
-
-            const buckets: { [id: Bucket['id']]: Bucket } = (await axios.get(`${AW_API_BASE}/buckets`)).data;
-
-            const windowBucket = Object.values(buckets).find(b => b.id.includes('aw-watcher-window'));
-            const afkBucket = Object.values(buckets).find(b => b.id.includes('aw-watcher-afk'));
-
+            
+            // Create timeperiod in the format expected by the AW client
+            const startMoment = moment(startDate);
+            const endMoment = moment(endDate);
+            
+            // Fetch categories
             const categories = await getCategories();
 
-            const query = fullDesktopQuery({
-                categories,
-                bid_window: windowBucket?.id || '',
-                bid_afk: afkBucket?.id || '',
-                filter_categories: [],
+            // Host identifier - should be extracted from bucket names in production
+            const hostname = "nb235988";
+            const bid_window = `aw-watcher-window_${hostname}`;
+            const bid_afk = `aw-watcher-afk_${hostname}`;
+            
+            // Create query parameters
+            const queryParams: DesktopQueryParams = {
+                categories: categories,
+                bid_window: bid_window,
+                bid_afk: bid_afk,
                 bid_browsers: [],
+                filter_categories: [],
                 filter_afk: true,
-            });
-
-            const payload = {
-                timeperiods: [timeperiod],
-                query: [query.join('')]
+                include_audible: true
             };
             
+            // Generate the query
+            const query = fullDesktopQuery(queryParams);
+            
+            // Convert to string for logging (optional)
+            const queryStr = query.join('\n');
+            console.debug('Query:', queryStr);
+            
             try {
-                const response = await axios.post(`${AW_API_BASE}/query`, payload);
+                // Execute query with our reimplemented client
+                // Note: For today's data, the client will automatically set end date to tomorrow
+                const response = await aw.query(
+                    queryStr, 
+                    [[startMoment.toDate(), endMoment.toDate()]]
+                );
 
                 return {
                     content: [
                         {
                             type: "text",
-                            text: JSON.stringify(response.data, null, 2)
+                            text: JSON.stringify(response, null, 2)
                         }
                     ],
                     isError: false

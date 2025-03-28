@@ -1,7 +1,14 @@
-import axios from 'axios';
 import moment from 'moment';
-import queries from '../lib/queries.js';
-import { AW_API_BASE, handleApiError, getCategories, toAWTimeperiod, Bucket } from './utils.js';
+import { handleApiError } from './utils.js';
+import { aw, DesktopQueryParams, categoryQuery, getCategories } from '../lib/aw-client/index.js';
+
+// Define a bucket interface for type safety
+interface Bucket {
+    id: string;
+    type: string;
+    hostname: string;
+    [key: string]: any;
+}
 
 export const activitywatch_category_activity_tool = {
     name: "activitywatch_category_activity",
@@ -9,6 +16,14 @@ export const activitywatch_category_activity_tool = {
     inputSchema: {
         type: "object",
         properties: {
+            startDate: {
+                type: "string",
+                description: "Start date in ISO format (e.g. '2024-02-01'). If not provided, defaults to start of current day"
+            },
+            endDate: {
+                type: "string",
+                description: "End date in ISO format (e.g. '2024-02-28'). If not provided, defaults to end of current day"
+            },
             timeperiods: {
                 type: "array",
                 description: "Time periods to query. Format: ['2024-10-28/2024-10-29'] where dates are in ISO format and joined with a slash",
@@ -20,89 +35,97 @@ export const activitywatch_category_activity_tool = {
                 minItems: 1,
                 maxItems: 10
             },
-            startDate: {
-                type: "string",
-                description: "Start date in ISO format (e.g. '2024-02-01'). If not provided, defaults to start of current day"
-            },
-            endDate: {
-                type: "string",
-                description: "End date in ISO format (e.g. '2024-02-28'). If not provided, defaults to end of current day"
+            limit: {
+                type: "number",
+                description: "Maximum number of activities to return per category",
+                default: 5
             },
             format: {
                 type: "string",
                 enum: ["detailed", "summary"],
-                default: "detailed",
-                description: "Format of the output"
-            },
-            limit: {
-                type: "number",
-                default: 5,
-                description: "Maximum number of activities to return per category"
+                description: "Format of the output",
+                default: "detailed"
             },
             includeUncategorized: {
                 type: "boolean",
-                default: true,
-                description: "Whether to include uncategorized activities"
+                description: "Whether to include uncategorized activities",
+                default: true
             }
         }
     },
     async handler(args: {
-        timeperiods?: string[];
         startDate?: string;
         endDate?: string;
-        format?: "detailed" | "summary";
+        timeperiods?: string[];
         limit?: number;
+        format?: "detailed" | "summary";
         includeUncategorized?: boolean;
     }) {
         try {
-            // Step 1: Get categories from settings
+            // Step 1: Get the categories
             const categories = await getCategories();
 
             // Step 2: Get required buckets
-            const bucketsResponse = await axios.get(`${AW_API_BASE}/0/buckets`);
-            const buckets: Bucket[] = Object.values(bucketsResponse.data);
+            const bucketsResponse = await aw.getBuckets();
+            const buckets: Bucket[] = Object.values(bucketsResponse);
 
-            const windowBucketId = buckets.find(b => b.type === 'currentwindow')?.id;
-            const afkBucketId = buckets.find(b => b.type === 'afkstatus')?.id;
-            const browserBuckets = buckets.filter(b => b.type === 'web.tab.current');
-            const stopwatchBucketId = buckets.find(b => b.type === 'stopwatch')?.id;
+            const windowBucketId = buckets.find((b: Bucket) => b.type === 'currentwindow')?.id;
+            const afkBucketId = buckets.find((b: Bucket) => b.type === 'afkstatus')?.id;
+            const browserBuckets = buckets.filter((b: Bucket) => b.type === 'web.tab.current');
+            const stopwatchBuckets = buckets.filter((b: Bucket) => b.type === 'stopwatch');
 
             if (!windowBucketId || !afkBucketId) {
-                throw new Error('Required buckets not found (window or AFK)');
+                throw new Error('Required buckets not found. Make sure aw-watcher-window and aw-watcher-afk are running.');
             }
 
             // Step 3: Create query with the categories
-            const query = queries.categoryQuery({
+            const query = categoryQuery({
                 bid_window: windowBucketId,
                 bid_afk: afkBucketId,
-                bid_browsers: browserBuckets.map(bucket => bucket.id),
-                bid_stopwatch: stopwatchBucketId,
+                bid_browsers: browserBuckets.map((bucket: Bucket) => bucket.id),
+                bid_stopwatch: stopwatchBuckets.map((bucket: Bucket) => bucket.id),
                 categories: categories,
-                filter_categories: [],
                 filter_afk: true,
-                always_active_pattern: undefined
+                include_audible: true,
             });
 
-            // Default to current day
+            // Step 4: Prepare timeperiods
             const startDate = args.startDate || moment().startOf('day').toISOString();
             const endDate = args.endDate || moment().endOf('day').toISOString();
             
-            const timeperiod = toAWTimeperiod(startDate, endDate);
+            // Create time periods array
+            let timeperiods: [Date, Date][] = [];
+            
+            if (args.timeperiods && args.timeperiods.length > 0) {
+                // Use provided timeperiods
+                timeperiods = args.timeperiods.map(period => {
+                    const [start, end] = period.split('/');
+                    return [new Date(start), new Date(end)];
+                });
+            } else {
+                // Use startDate and endDate parameters
+                // Note: For today's data, the client will automatically set end date to tomorrow
+                timeperiods = [[new Date(startDate), new Date(endDate)]];
+            }
+            
             // Step 5: Execute query
-            const queryResult = await axios.post(`${AW_API_BASE}/query`, {
-                timeperiods: [timeperiod],
-                query: [query.join('')]
-            });
+            const queryStr = query.join('\n');
+            const queryResult = await aw.query(queryStr, timeperiods);
 
-            if (!queryResult.data || !queryResult.data.length || !queryResult.data[0].cat_events) {
+            if (!queryResult || !queryResult.length || !queryResult[0].cat_events) {
                 return {
-                    timeperiod,
-                    categories: {}
+                    content: [
+                        {
+                            type: "text",
+                            text: "No category data found."
+                        }
+                    ],
+                    isError: false
                 };
             }
 
             // Step 6: Process results
-            const categories_data = queryResult.data[0].cat_events.reduce((acc: any, event: any) => {
+            const categories_data = queryResult[0].cat_events.reduce((acc: any, event: any) => {
                 const category = event.$category || 'Uncategorized';
                 if (category === 'Uncategorized' && !args.includeUncategorized) {
                     return acc;
@@ -131,7 +154,7 @@ export const activitywatch_category_activity_tool = {
             }, {});
 
             return {
-                timeperiod,
+                timeperiod: timeperiods[0][0].toISOString() + '/' + timeperiods[0][1].toISOString(),
                 categories: categories_data
             };
         } catch (error) {
