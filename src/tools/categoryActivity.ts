@@ -32,6 +32,8 @@ function formatResponse(queryResult: any, args: {
         };
     }
 
+    const format = args.format || "summary";
+    
     // Process results
     const categories_data = queryResult[0].cat_events.reduce((acc: any, event: any) => {
         const category = event.data.$category || ['Uncategorized'];
@@ -50,7 +52,7 @@ function formatResponse(queryResult: any, args: {
 
         acc[categoryKey].duration += event.duration;
         
-        if (args.format !== "summary") {
+        if (format !== "summary") {
             if (acc[categoryKey].events.length < (args.limit || 5)) {
                 acc[categoryKey].events.push({
                     title: event.data.title || event.data.app,
@@ -65,7 +67,7 @@ function formatResponse(queryResult: any, args: {
     }, {});
 
     // For summary format, create a text-based output
-    if (args.format === "summary") {
+    if (format === "summary") {
         const lines: string[] = [];
         lines.push("--- Category Activity Summary ---");
         if (args.timeperiod) {
@@ -138,7 +140,7 @@ export const activitywatch_category_activity_tool = {
                 type: "string",
                 enum: ["detailed", "summary"],
                 description: "Format of the output",
-                default: "detailed"
+                default: "summary"
             },
             includeUncategorized: {
                 type: "boolean",
