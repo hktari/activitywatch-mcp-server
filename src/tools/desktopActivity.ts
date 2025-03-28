@@ -199,11 +199,17 @@ export const activitywatch_desktop_activity_tool = {
 
             // Fetch categories
             const categories = await getCategories();
+            const buckets = await aw.getBuckets();
 
-            // Host identifier - should be extracted from bucket names in production
-            const hostname = "nb235988";
-            const bid_window = `aw-watcher-window_${hostname}`;
-            const bid_afk = `aw-watcher-afk_${hostname}`;
+            const bid_window = Object.values(buckets).find(b => b.id.includes('aw-watcher-window_'))?.id;
+            const bid_afk = Object.values(buckets).find(b => b.id.includes('aw-watcher-afk_'))?.id;
+
+            if(!bid_window || !bid_afk) {
+                return {
+                    content: [{ type: "text", text: "Failed to find required buckets" }],
+                    isError: true
+                };
+            }
 
             // Create query parameters
             const queryParams: DesktopQueryParams = {
