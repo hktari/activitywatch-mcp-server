@@ -96,7 +96,7 @@ function getTopItems(
         // Headers
         output.push(`  ${durationHeader.padEnd(maxDurationLength + PADDING)}${keyHeader.padEnd(maxKeyLength)}`);
         // Separator line
-        output.push(`  ${ '- '.repeat(maxDurationLength).padEnd(maxDurationLength + PADDING)}${ '- '.repeat(maxKeyLength)}`);
+        output.push(`  ${'- '.repeat(maxDurationLength).padEnd(maxDurationLength + PADDING)}${'- '.repeat(maxKeyLength)}`);
         // Data rows
         for (const [key, duration] of topN) {
             const formattedKey = key || '(empty)'; // Handle null/undefined keys
@@ -115,7 +115,7 @@ function getTopItems(
  * Formats the complex query response from the desktop activity query into
  * a human-readable text summary, including top categories, titles, and total duration.
  */
-function formatQueryResponse(response: any, limit: number = 10): { type: string, text: string }[] {
+function formatQueryResponseAsSummary(response: any, limit: number = 10): { type: string, text: string }[] {
     const outputLines: string[] = [];
 
     // Basic validation of the response structure
@@ -155,7 +155,7 @@ function formatQueryResponse(response: any, limit: number = 10): { type: string,
         const totalDurationSeconds = (titleEvents || []).reduce((sum, e) => {
             const duration = typeof e.duration === 'number' && !isNaN(e.duration) ? e.duration : 0;
             return sum + duration;
-         }, 0);
+        }, 0);
         outputLines.push(`Total Active Duration: ${formatDuration(totalDurationSeconds)}`);
         outputLines.push(''); // Add space before the next period or end
     }
@@ -174,6 +174,10 @@ export const activitywatch_desktop_activity_tool = {
     inputSchema: {
         type: "object",
         properties: {
+            format: {
+                type: "string",
+                description: "Format of the output. 'detailed' for detailed output, 'summary' for summary output"
+            },
             startDate: {
                 type: "string",
                 description: "Start date in ISO format (e.g. '2024-02-01'). If not provided, defaults to start of current day"
@@ -184,15 +188,15 @@ export const activitywatch_desktop_activity_tool = {
             }
         }
     },
-    async handler(args: { startDate?: string; endDate?: string }) {
+    async handler(args: { format?: string; startDate?: string; endDate?: string }) {
         try {
             const startDate = args.startDate || moment().startOf('day').toISOString();
             const endDate = args.endDate || moment().endOf('day').toISOString();
-            
+
             // Create timeperiod in the format expected by the AW client
             const startMoment = moment(startDate);
             const endMoment = moment(endDate);
-            
+
             // Fetch categories
             const categories = await getCategories();
 
@@ -200,7 +204,7 @@ export const activitywatch_desktop_activity_tool = {
             const hostname = "nb235988";
             const bid_window = `aw-watcher-window_${hostname}`;
             const bid_afk = `aw-watcher-afk_${hostname}`;
-            
+
             // Create query parameters
             const queryParams: DesktopQueryParams = {
                 categories: categories,
@@ -211,23 +215,27 @@ export const activitywatch_desktop_activity_tool = {
                 filter_afk: true,
                 include_audible: true
             };
-            
+
             // Generate the query
             const query = fullDesktopQuery(queryParams);
-            
+
             // Convert to string for logging (optional)
             const queryStr = query.join('\n');
             console.debug('Query:', queryStr);
-            
+
             try {
                 // Execute query with our reimplemented client
                 // Note: For today's data, the client will automatically set end date to tomorrow
                 const response = await aw.query(
-                    queryStr, 
+                    queryStr,
                     [[startMoment.toDate(), endMoment.toDate()]]
                 );
 
-                return { content: formatQueryResponse(response), isError: false };
+                if (args.format === 'detailed') {
+                    return { content: [{ type: "json", text: JSON.stringify(response) }], isError: false };
+                } else {
+                    return { content: formatQueryResponseAsSummary(response), isError: false };
+                }
             } catch (error) {
                 return handleApiError(error);
             }
@@ -236,3 +244,8 @@ export const activitywatch_desktop_activity_tool = {
         }
     }
 };
+
+interface ToolResponse {
+    content: { type: "text"; text: string }[];
+    isError: boolean;
+}

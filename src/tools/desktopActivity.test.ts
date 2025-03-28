@@ -7,12 +7,24 @@ describe('activitywatch_desktop_activity_tool', () => {
         process.env.NODE_ENV = 'test';
     });
 
-    test('returns desktop activity for current day when no dates provided', async () => {
-        const result = await activitywatch_desktop_activity_tool.handler({});
+    test('should return summary when format is summary', async () => {
+        const result = await activitywatch_desktop_activity_tool.handler({format: 'summary'});
         
         expect(result.isError).toBe(false);
         expect(result.content).toHaveLength(1);
         expect(result.content[0].type).toBe('text');
+        
+        const data = result.content[0].text;
+        expect(typeof data).toBe('string');
+        expect(data).toContain('Total Active Duration');
+    });
+
+    test('returns desktop activity for current day when no dates provided', async () => {
+        const result = await activitywatch_desktop_activity_tool.handler({format: 'detailed'});
+        
+        expect(result.isError).toBe(false);
+        expect(result.content).toHaveLength(1);
+        expect(result.content[0].type).toBe('json');
         
         const data = JSON.parse(result.content[0].text);
         expect(Array.isArray(data)).toBe(true);
@@ -20,7 +32,7 @@ describe('activitywatch_desktop_activity_tool', () => {
 
     test('validates today\'s desktop activity data structure and content', async () => {
         // Today's data
-        const result = await activitywatch_desktop_activity_tool.handler({});
+        const result = await activitywatch_desktop_activity_tool.handler({format: 'detailed'});
         
         expect(result.isError).toBe(false);
         expect(result.content).toHaveLength(1);
@@ -65,12 +77,13 @@ describe('activitywatch_desktop_activity_tool', () => {
 
         const result = await activitywatch_desktop_activity_tool.handler({
             startDate,
-            endDate
+            endDate,
+            format: 'detailed'
         });
         
         expect(result.isError).toBe(false);
         expect(result.content).toHaveLength(1);
-        expect(result.content[0].type).toBe('text');
+        expect(result.content[0].type).toBe('json');
         
         const data = JSON.parse(result.content[0].text);
         expect(Array.isArray(data)).toBe(true);
@@ -82,12 +95,13 @@ describe('activitywatch_desktop_activity_tool', () => {
 
         const result = await activitywatch_desktop_activity_tool.handler({
             startDate,
-            endDate
+            endDate,
+            format: 'detailed'
         });
         
         expect(result.isError).toBe(false);
         expect(result.content).toHaveLength(1);
-        expect(result.content[0].type).toBe('text');
+        expect(result.content[0].type).toBe('json');
         
         const data = JSON.parse(result.content[0].text);
         expect(Array.isArray(data)).toBe(true);
